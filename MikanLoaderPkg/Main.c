@@ -127,6 +127,7 @@ EFI_STATUS OpenGOP(EFI_HANDLE image_handle,
   EFI_STATUS status;
   UINTN num_gop_handles = 0;
   EFI_HANDLE* gop_handles = NULL;
+
   status = gBS->LocateHandleBuffer(
       ByProtocol,
       &gEfiGraphicsOutputProtocolGuid,
@@ -178,6 +179,7 @@ EFI_STATUS EFIAPI UefiMain(
     EFI_HANDLE image_handle,
     EFI_SYSTEM_TABLE* system_table) {
   EFI_STATUS status;
+
   Print(L"Hello, Mikan World!\n");
 
   CHAR8 memmap_buf[4096 * 4];
@@ -199,7 +201,6 @@ EFI_STATUS EFIAPI UefiMain(
   status = root_dir->Open(
       root_dir, &memmap_file, L"\\memmap",
       EFI_FILE_MODE_READ | EFI_FILE_MODE_WRITE | EFI_FILE_MODE_CREATE, 0);
-
   if (EFI_ERROR(status)) {
     Print(L"failed to open file '\\memmap': %r\n", status);
     Print(L"Ignored.\n");
@@ -232,7 +233,6 @@ EFI_STATUS EFIAPI UefiMain(
       gop->Mode->FrameBufferBase,
       gop->Mode->FrameBufferBase + gop->Mode->FrameBufferSize,
       gop->Mode->FrameBufferSize);
-  
 
   UINT8* frame_buffer = (UINT8*)gop->Mode->FrameBufferBase;
   for (UINTN i = 0; i < gop->Mode->FrameBufferSize; ++i) {
@@ -241,42 +241,44 @@ EFI_STATUS EFIAPI UefiMain(
 
   EFI_FILE_PROTOCOL* kernel_file;
   status = root_dir->Open(
-    root_dir, &kernel_file, L"\\kernel.elf",
-    EFI_FILE_MODE_READ, 0);
+      root_dir, &kernel_file, L"\\kernel.elf",
+      EFI_FILE_MODE_READ, 0);
   if (EFI_ERROR(status)) {
     Print(L"failed to open file '\\kernel.elf': %r\n", status);
     Halt();
   }
-  
+
   UINTN file_info_size = sizeof(EFI_FILE_INFO) + sizeof(CHAR16) * 12;
-  UINTN file_info_buffer[file_info_size];
+  UINT8 file_info_buffer[file_info_size];
   status = kernel_file->GetInfo(
-    kernel_file, &gEfiFileInfoGuid,
-    &file_info_size, file_info_buffer);
+      kernel_file, &gEfiFileInfoGuid,
+      &file_info_size, file_info_buffer);
   if (EFI_ERROR(status)) {
     Print(L"failed to get file information: %r\n", status);
     Halt();
   }
-  
+
   EFI_FILE_INFO* file_info = (EFI_FILE_INFO*)file_info_buffer;
   UINTN kernel_file_size = file_info->FileSize;
 
+  // #@@range_begin(alloc_error)
   EFI_PHYSICAL_ADDRESS kernel_base_addr = 0x100000;
   status = gBS->AllocatePages(
-    AllocateAddress, EfiLoaderData,
-    (kernel_file_size + 0xfff) / 0x1000, &kernel_base_addr);
+      AllocateAddress, EfiLoaderData,
+      (kernel_file_size + 0xfff) / 0x1000, &kernel_base_addr);
   if (EFI_ERROR(status)) {
-    Print(L"failed to allocate pages: %r\n", status);
+    Print(L"failed to allocate pages: %r", status);
     Halt();
   }
-  
+  // #@@range_end(alloc_error)
   status = kernel_file->Read(kernel_file, &kernel_file_size, (VOID*)kernel_base_addr);
   if (EFI_ERROR(status)) {
-    Print(L"error: %r\n", status);
+    Print(L"error: %r", status);
     Halt();
   }
   Print(L"Kernel: 0x%0lx (%lu bytes)\n", kernel_base_addr, kernel_file_size);
 
+  // #@@range_begin(exit_bs)
   status = gBS->ExitBootServices(image_handle, memmap.map_key);
   if (EFI_ERROR(status)) {
     status = GetMemoryMap(&memmap);
@@ -290,6 +292,7 @@ EFI_STATUS EFIAPI UefiMain(
       Halt();
     }
   }
+  // #@@range_end(exit_bs)
 
   UINT64 entry_addr = *(UINT64*)(kernel_base_addr + 24);
 
@@ -315,7 +318,9 @@ EFI_STATUS EFIAPI UefiMain(
   typedef void EntryPointType(const struct FrameBufferConfig*);
   EntryPointType* entry_point = (EntryPointType*)entry_addr;
   entry_point(&config);
-  
+
+  Print(L"All done\n");
+
   while (1);
   return EFI_SUCCESS;
 }
