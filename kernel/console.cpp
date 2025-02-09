@@ -20,7 +20,7 @@ void Console::PutString(const char *s) {
         if (*s == '\n') {
             Newline();
         } else if (cursor_column_ < kColumns - 1) {
-            WriteAscii(writer_, 8 * cursor_column_, 16 * cursor_column_, *s, fg_color_);
+            WriteAscii(writer_, 8 * cursor_column_, 16 * cursor_row_, *s, fg_color_);
             buffer_[cursor_row_][cursor_column_] = *s;
             ++cursor_column_;
         }
