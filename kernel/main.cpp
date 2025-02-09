@@ -93,7 +93,7 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config) {
         for (int dx = 0; dx < kMouseCursorWidth; ++dx) {
             if (mouse_cursor_shape[dy][dx] == '@') {
                 pixel_writer->Write(200 + dx, 100 + dy, {0, 0, 0});
-            } else if (mouse_cursor_shape[dy][dx]) {
+            } else if (mouse_cursor_shape[dy][dx] == '.') {
                 pixel_writer->Write(200 + dx, 100 + dy, {255, 255, 255});
             }
         }
