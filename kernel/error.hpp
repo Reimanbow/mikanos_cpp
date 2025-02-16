@@ -26,6 +26,7 @@ class Error {
         kInvalidPhase,
         kUnknownXHCISpeedID,
         kNoWaiter,
+        kNoPCIMSI,
         kLastOfCode,
     };
 
@@ -50,6 +51,7 @@ class Error {
         "kTransferFailed",
         "kInvalidPhase",
         "kUnknownXHCISpeedID",
+        "kNoPCIMSI",
         "kNoWaiter",
     };
     static_assert(Error::Code::kLastOfCode == code_names_.size());
