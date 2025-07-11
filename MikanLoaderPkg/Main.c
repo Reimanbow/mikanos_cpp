@@ -307,9 +307,9 @@ EFI_STATUS EFIAPI UefiMain(
 
 	// エントリポイントの場所であるentry_addrを関数ポインタにキャストして呼び出す
 	// 引数と戻り値がどちらもvoid型であるような関数を表すEntryPointTypeという型を作成することで、C言語の関数として呼び出せる
-	typedef void EntryPointType(void);
+	typedef void EntryPointType(UINT64, UINT64);
 	EntryPointType* entry_point = (EntryPointType*)entry_addr;
-	entry_point();
+	entry_point(gop->Mode->FrameBufferBase, gop->Mode->FrameBufferSize);
 
 	Print(L"All done\n");
 
