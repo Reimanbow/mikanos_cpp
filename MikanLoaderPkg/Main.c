@@ -3,12 +3,14 @@
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/PrintLib.h>
 #include <Library/MemoryAllocationLib.h>
+#include <Library/BaseMemoryLib.h>
 #include <Protocol/LoadedImage.h>
 #include <Protocol/SimpleFileSystem.h>
 #include <Protocol/DiskIo2.h>
 #include <Protocol/BlockIo.h>
 #include <Guid/FileInfo.h>
 #include "frame_buffer_config.hpp"
+#include "elf.hpp"
 
 /** @brief メモリマップの情報を格納する構造体
  *
@@ -204,6 +206,39 @@ void Halt(void) {
 	while (1) __asm__("hlt");
 }
 
+/** @brief カーネルファイル内のすべてのLOADセグメント（p_typeがPT_LOADであるセグメント）を順にめぐり、アドレス範囲を更新していく */
+void CalcLoadAddressRange(Elf64_Ehdr* ehdr, UINT64* first, UINT64* last) {
+	// プログラムヘッダの配列を指すポインタ
+	Elf64_Phdr* phdr = (Elf64_Phdr*)((UINT64)ehdr + ehdr->e_phoff);
+	*first = MAX_UINT64;
+	*last = 0;
+	for (Elf64_Half i = 0; i < ehdr->e_phnum; ++i) {
+		if (phdr[i].p_type != PT_LOAD) continue;
+		// 先頭にあるLOADセグメントのp_vaddrの値になる
+		*first = MIN(*first, phdr[i].p_vaddr);
+		// 末尾にあるLOADセグメントのp_vaddr+p_memszの値になる
+		*last = MAX(*last, phdr[i].p_vaddr + phdr[i].p_memsz);
+	}
+}
+
+/** @brief p_type == PT_LOADであるセグメントに対して2つの処理を行う
+ * 
+ * 1.segm_in_fileが指す一時領域からp_vaddrが指す最終目的地へデータをコピーする
+ * 2.セグメントのメモリ上のサイズがファイル上のサイズより大きい場合、残りを0で埋める
+ */
+void CopyLoadSegments(Elf64_Ehdr* ehdr) {
+	Elf64_Phdr* phdr = (Elf64_Phdr*)((UINT64)ehdr + ehdr->e_phoff);
+	for (Elf64_Half i = 0; i < ehdr->e_phnum; ++i) {
+		if (phdr[i].p_type != PT_LOAD) continue;
+
+		UINT64 segm_in_file = (UINT64)ehdr + phdr[i].p_offset;
+		CopyMem((VOID*)phdr[i].p_vaddr, (VOID*)segm_in_file, phdr[i].p_filesz);
+
+		UINTN remain_bytes = phdr[i].p_memsz - phdr[i].p_filesz;
+		SetMem((VOID*)(phdr[i].p_vaddr + phdr[i].p_filesz), remain_bytes, 0);
+	}
+}
+
 /** @brief UEFIアプリケーションのエントリポイント
  *
  * このローダーのメイン関数。メモリマップを取得し、ファイルに保存する。
@@ -302,29 +337,56 @@ EFI_STATUS EFIAPI UefiMain(
 		Halt();
 	}
 	
-	// カーネルファイルの大きさが分かったら、ファイルを格納できる十分な大きさのメモリを確保する
+	// カーネルファイルの読み込み
 	EFI_FILE_INFO* file_info = (EFI_FILE_INFO*)file_info_buffer;
 	UINTN kernel_file_size = file_info->FileSize;
 
-	// AllocatePagesを使ってファイルを格納できる十分な大きさのメモリを確保する
-	// 第1引数にメモリの確保の仕方、第2引数に確保するメモリ領域の種別、第3引数に大きさ、第4引数に確保したメモリ領域のアドレス
-	// AllocateAddress: 指定したアドレス（0x100000）に確保する(ld.lldのオプションで指定済み)
-	// 第3引数の大きさはページ単位なので、バイト単位からページ単位に変換する
-	EFI_PHYSICAL_ADDRESS kernel_base_addr = 0x100000;
-	status = gBS->AllocatePages(
-		AllocateAddress, EfiLoaderData,
-		(kernel_file_size + 0xfff) / 0x1000, &kernel_base_addr);
+	VOID* kernel_buffer;
+	// カーネルファイルを読み込むための一時領域を確保する. ページ単位ではなくバイト単位でメモリを確保できる. ただし、場所を指定する機能はない
+	// 成功すると、kernel_bufferには確保されたメモリ領域の先頭アドレスが格納されている
+	status = gBS->AllocatePool(EfiLoaderData, kernel_file_size, &kernel_buffer);
 	if (EFI_ERROR(status)) {
-		Print(L"failed to allocate pages: %r\n", status);
+		Print(L"failed to allocate pool: %r\n", status);
 		Halt();
 	}
-	// メモリ領域が確保できたらkernel_file→Read()を使ってファイル全体を読み込む
-	status = kernel_file->Read(kernel_file, &kernel_file_size, (VOID*)kernel_base_addr);
+	// 一時領域の先頭アドレスをkernel_file->Read()に指定することで、カーネルファイルの内容をすべて一次領域へ読み込める
+	status = kernel_file->Read(kernel_file, &kernel_file_size, kernel_buffer);
 	if (EFI_ERROR(status)) {
 		Print(L"error: %r\n", status);
 		Halt();
 	}
-	Print(L"Kernel: 0x%0lx (%lu bytes)\n", kernel_base_addr, kernel_file_size);
+
+	// コピー先のメモリ領域の確保
+	// 最終目的地の番地の範囲を取得し、それに応じて最終目的地のメモリ領域を確保する
+	// 最終目的地の範囲は0x10000から始まるアドレスの範囲
+	Elf64_Ehdr* kernel_ehdr = (Elf64_Ehdr*)kernel_buffer;
+	// 範囲を計算し、kernel_first_addrに開始アドレスを、kernel_last_addrに終了アドレスを設定する
+	UINT64 kernel_first_addr, kernel_last_addr;
+	CalcLoadAddressRange(kernel_ehdr, &kernel_first_addr, &kernel_last_addr);
+
+	// 必要なメモリの大きさを計算し、メモリを確保する
+	UINTN num_pages = (kernel_last_addr - kernel_first_addr + 0xfff) / 0x1000;
+	// AllocatePagesを使ってファイルを格納できる十分な大きさのメモリを確保する
+	// 第1引数にメモリの確保の仕方、第2引数に確保するメモリ領域の種別、第3引数に大きさ、第4引数に確保したメモリ領域のアドレス
+	// AllocateAddress: 指定したアドレス（0x100000）に確保する(ld.lldのオプションで指定済み)
+	// 第3引数の大きさはページ単位なので、バイト単位からページ単位に変換する
+	status = gBS->AllocatePages(AllocateAddress, EfiLoaderData,
+								num_pages, &kernel_first_addr);
+	if (EFI_ERROR(status)) {
+		Print(L"failed to allocate pages: %r\n", status);
+		Halt();
+	}
+
+	// 一時領域から最終目的地へLOADセグメントのコピー
+	CopyLoadSegments(kernel_ehdr);
+	Print(L"Kernel: 0x%0lx - 0x%0lx\n", kernel_first_addr, kernel_last_addr);
+
+	// 一時領域を解放する
+	status = gBS->FreePool(kernel_buffer);
+	if (EFI_ERROR(status)) {
+		Print(L"failed to free pool: %r\n", status);
+		Halt();
+	}
 
 	// UEFI BIOSのブートサービスを停止する
 	// ExitBootServices()は、その呼び出し時点で最新のメモリマップのマップキーを要求する
@@ -349,7 +411,7 @@ EFI_STATUS EFIAPI UefiMain(
 	// メモリ上でエントリポイント(KernelMain())が置いてある場所を計算してエントリポイントを呼び出す
 	// readelf -hより、エントリポイントアドレスの値が0x101120である
 	// 64ビット用のELFのエントリポイントアドレスは、オフセット24バイトの位置から8バイト整数として書かれる
-	UINT64 entry_addr = *(UINT64*)(kernel_base_addr + 24);
+	UINT64 entry_addr = *(UINT64*)(kernel_first_addr + 24);
 
 	// GOPから取得した情報を、FrameBufferConfigにコピーする
 	struct FrameBufferConfig config = {
