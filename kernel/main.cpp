@@ -9,6 +9,25 @@
 
 #include "frame_buffer_config.hpp"
 
+const uint8_t kFontA[16] = {
+  0b00000000, //
+  0b00011000, //    **
+  0b00011000, //    **
+  0b00011000, //    **
+  0b00011000, //    **
+  0b00100100, //   *  *
+  0b00100100, //   *  *
+  0b00100100, //   *  *
+  0b00100100, //   *  *
+  0b01111110, //  ******
+  0b01000010, //  *    *
+  0b01000010, //  *    *
+  0b01000010, //  *    *
+  0b11100111, // ***  ***
+  0b00000000, //
+  0b00000000, //
+};
+
 struct PixelColor {
 	uint8_t r, g, b;
 };
@@ -82,6 +101,22 @@ int WritePixel(const FrameBufferConfig& config,
 	return 0;
 }
 
+// 作成したフォントデータを利用して1文字を描画するための関数
+void WriteAscii(PixelWriter& writer, int x, int y, char c, const PixelColor& color) {
+	if (c != 'A') {
+		return;
+	}
+	// 一番上のピクセルを横方向に描画し、次に2本目のピクセルを横方向に描画し、…を16回繰り返して描画する
+	for (int dy = 0; dy < 16; ++dy) {
+		for (int dx = 0; dx < 8; ++dx) {
+			// フォントデータの該当するビットが1かどうかを検査する
+			if ((kFontA[dy] << dx) & 0x80u) {
+				writer.Write(x + dx, y + dy, color);
+			}
+		}
+	}
+}
+
 // 配置new演算子の定義
 // operatorキーワードで演算子を定義できる
 void* operator new(size_t size, void* buf) {
@@ -123,6 +158,9 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config) {
 			pixel_writer->Write(x, y, {0, 255, 0});
 		}
 	}
+
+	WriteAscii(*pixel_writer, 50, 50, 'A', {0, 0, 0});
+	WriteAscii(*pixel_writer, 58, 50, 'A', {0, 0, 0});
 
 	while (1) __asm__("hlt");
 }
