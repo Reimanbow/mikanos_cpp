@@ -6,36 +6,29 @@
 
 #include "font.hpp"
 
-const uint8_t kFontA[16] = {
-  0b00000000, //
-  0b00011000, //    **
-  0b00011000, //    **
-  0b00011000, //    **
-  0b00011000, //    **
-  0b00100100, //   *  *
-  0b00100100, //   *  *
-  0b00100100, //   *  *
-  0b00100100, //   *  *
-  0b01111110, //  ******
-  0b01000010, //  *    *
-  0b01000010, //  *    *
-  0b01000010, //  *    *
-  0b11100111, // ***  ***
-  0b00000000, //
-  0b00000000, //
-};
+// extern: どこか他のオブジェクトファイルにある変数を参照する(hankaku.o)
+extern const uint8_t _binary_hankaku_bin_start;
+extern const uint8_t _binary_hankaku_bin_end;
+extern const uint8_t _binary_hankaku_bin_size;
+
+// ASCIIコードに対応したフォントデータの先頭アドレスを返す
+const uint8_t* GetFont(char c) {
+	auto index = 16 * static_cast<unsigned int>(c);
+	if (index >= reinterpret_cast<uintptr_t>(&_binary_hankaku_bin_size)) {
+		return nullptr;
+	}
+	return &_binary_hankaku_bin_start + index;
+}
 
 // 作成したフォントデータを利用して1文字を描画するための関数
 void WriteAscii(PixelWriter& writer, int x, int y, char c, const PixelColor& color) {
-	if (c != 'A') {
-		return;
-	}
+	const uint8_t* font = GetFont(c);
 
 	// 一番上のピクセルを横方向に描画し、次に2本目のピクセルを横方向に描画し、…を16回繰り返して描画する
 	for (int dy = 0; dy < 16; ++dy) {
 		for (int dx = 0; dx < 8; ++dx) {
 			// フォントデータの該当するビットが1かどうかを検査する
-			if ((kFontA[dy] << dx) & 0x80u) {
+			if ((font[dy] << dx) & 0x80u) {
 				writer.Write(x + dx, y + dy, color);
 			}
 		}
