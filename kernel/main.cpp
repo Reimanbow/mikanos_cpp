@@ -26,6 +26,24 @@ void operator delete(void* obj) noexcept {
 char pixel_writer_buf[sizeof(RGBResv8BitPerColorPixelWriter)];
 PixelWriter* pixel_writer;
 
+char console_buf[sizeof(Console)];
+Console* console;
+
+// 可変長引数を取る
+int printk(const char* format, ...) {
+	va_list ap;
+	int result;
+	char s[1024];
+
+	va_start(ap, format);
+	// vsprintf(): 可変長引数の代わりにva_list型の変数を受け取ることができる
+	result = vsprintf(s, format, ap);
+	va_end(ap);
+
+	console->PutString(s);
+	return result;
+}
+
 extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config) {
 	// ピクセルのデータ形式frame_buffer_config.pixel_formatに基づいて2つの子クラスの適するインスタンスを生成し、そのインスタンスへのポインタをpixel_writerへ渡す
 	// 配置new: メモリの確保は行わないが、引数に指定したメモリ領域の上にインスタンスを生成する。そのメモリ領域に対してコンストラクタを呼び出す
@@ -55,12 +73,11 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config) {
 		}
 	}
 
-	Console console{*pixel_writer, {0, 0, 0}, {255, 255, 255}};
+	// グローバル領域にConsoleの大きさ分のメモリ領域をcharの配列で確保しておき、配置newでインスタンスを生成する
+	console = new(console_buf) Console{*pixel_writer, {0, 0, 0}, {255, 255, 255}};
 
-	char buf[128];
 	for (int i = 0; i < 27; ++i) {
-		sprintf(buf, "line %d\n", i);
-		console.PutString(buf);
+		printk("printk: %d\n", i);
 	}
 
 	while (1) __asm__("hlt");
