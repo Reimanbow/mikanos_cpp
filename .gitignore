@@ -1,4 +1,5 @@
 build/
 *.o
 .*.d
+*.swp
 hankaku.bin
