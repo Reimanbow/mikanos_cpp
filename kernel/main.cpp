@@ -25,6 +25,7 @@
 #include "usb/xhci/trb.hpp"
 #include "interrupt.hpp"
 #include "asmfunc.h"
+#include "queue.hpp"
 
 const PixelColor kDesktopBGColor{45, 118, 237};
 const PixelColor kDesktopFGColor{255, 255, 255};
@@ -80,15 +81,21 @@ void SwitchEhci2Xhci(const pci::Device& xhc_dev) {
 
 usb::xhci::Controller* xhc;
 
+// キューが扱うデータ型となる専用の構造体 
+// メッセージの種類を判別するtype値を持つ
+struct Message {
+	enum Type {
+		kInterruptXHCI,
+	} type;
+};
+
+ArrayQueue<Message>* main_queue;
+
 // 直後に定義される関数が純粋なC++の関数ではなく、割り込みハンドラであることをコンパイラに伝える
 __attribute__((interrupt))
 void IntHandlerXHCI(InterruptFrame* frame) {
-	while (xhc->PrimaryEventRing()->HasFront()) {
-		if (auto err = ProcessEvent(*xhc)) {
-			Log(kError, "Error while ProcessEvent: %s at %s:%d\n",
-				err.Name(), err.File(), err.Line());
-		}
-	}
+	// メッセージ構造体の値を生成してキューにプッシュする
+	main_queue->Push(Message{Message::kInterruptXHCI});
 	NotifyEndOfInterrupt();
 }
 
@@ -142,6 +149,10 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config) {
   	mouse_cursor = new(mouse_cursor_buf) MouseCursor{
  		pixel_writer, kDesktopBGColor, {300, 200}
 	};
+
+	std::array<Message, 32> main_queue_data;
+	ArrayQueue<Message> main_queue{main_queue_data};
+	::main_queue = &main_queue;
 
 	auto err = pci::ScanAllBus();
 	Log(kDebug, "ScanAllBus: %s\n", err.Name());
@@ -226,7 +237,37 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config) {
     	}
   	}
 
-	while (1) __asm__("hlt");
+	// キューからメッセージを取り出して処理を行う
+	while (true) {
+		// cli: CPUの割り込みフラグを0にする命令
+		// このフラグが0のとき, CPUは外部割り込みを受け取らなくなる. 割り込みハンドラIntHandlerXHCI()は実行されなくなる
+		__asm__("cli");
+		if (main_queue.Count() == 0) {
+			// インラインアセンブラは\n\tで複数の命令を並べることができる
+			__asm__("sti\n\thlt");
+			continue;
+		}
+
+		// キューからメッセージを1つ取り出す
+		Message msg = main_queue.Front();
+		main_queue.Pop();
+		// sti: 割り込みフラグを1にする効果がある
+		__asm__("sti");
+
+		// メッセージの内容に応じて処理を行う
+		switch (msg.type) {
+		case Message::kInterruptXHCI:
+			while (xhc.PrimaryEventRing()->HasFront()) {
+				if (auto err = ProcessEvent(xhc)) {
+					Log(kError, "Error while ProcessEvent: %s at %s:%d\n",
+						err.Name(), err.File(), err.Line());
+				}
+			}
+			break;
+		default:
+			Log(kError, "Unknown message type: %d\n", msg.type);
+		}
+	}
 }
 
 extern "C" void __cxa_pure_virtual() {
