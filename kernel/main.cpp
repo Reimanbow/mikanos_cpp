@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "frame_buffer_config.hpp"
+#include "memory_map.hpp"
 #include "graphics.hpp"
 #include "mouse.hpp"
 #include "font.hpp"
@@ -99,7 +100,8 @@ void IntHandlerXHCI(InterruptFrame* frame) {
 	NotifyEndOfInterrupt();
 }
 
-extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config) {
+extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config,
+						   const MemoryMap& memory_map) {
 	// ピクセルのデータ形式frame_buffer_config.pixel_formatに基づいて2つの子クラスの適するインスタンスを生成し、そのインスタンスへのポインタをpixel_writerへ渡す
 	// 配置new: メモリの確保は行わないが、引数に指定したメモリ領域の上にインスタンスを生成する。そのメモリ領域に対してコンストラクタを呼び出す
 	// 一般のnewはOSがメモリ確保要求を出すようになってはじめて可能である。しかし、ヒープ領域には
@@ -145,6 +147,30 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config) {
 	printk("Welcome to MikanOS!\n");
 
 	SetLogLevel(kWarn);
+
+	const std::array available_memory_types {
+		MemoryType::kEfiBootServicesCode,
+		MemoryType::kEfiBootServicesData,
+		MemoryType::kEfiConventionalMemory,
+	};
+
+	printk("memory_map: %p\n", &memory_map);
+	// メモリマップはメモリディスクリプタの配列であるため、それを順番に表示する
+	for (uintptr_t iter = reinterpret_cast<uintptr_t>(memory_map.buffer);
+		 iter < reinterpret_cast<uintptr_t>(memory_map.buffer) + memory_map.map_size;
+		 iter += memory_map.descriptor_size) {
+		auto desc = reinterpret_cast<MemoryDescriptor*>(iter);
+		for (int i = 0; i < available_memory_types.size(); ++i) {
+			if (desc->type == available_memory_types[i]) {
+				printk("type = %u, phys = %08lx - %08lx, pages = %lu, attr = %08lx\n",
+					desc->type,
+					desc->physical_start,
+					desc->physical_start + desc->number_of_pages * 4096 - 1,
+					desc->number_of_pages,
+					desc->attribute);
+			}
+		}
+	}
 
   	mouse_cursor = new(mouse_cursor_buf) MouseCursor{
  		pixel_writer, kDesktopBGColor, {300, 200}
