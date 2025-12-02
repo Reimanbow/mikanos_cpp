@@ -457,9 +457,9 @@ EFI_STATUS EFIAPI UefiMain(
 	UINT64 entry_addr = *(UINT64*)(kernel_base_addr + 24);
 	
 	// エントリポイントの場所であるentry_addrの値を関数ポインタにキャストし呼び出す
-	typedef void EntryPointType(void);
+	typedef void EntryPointType(UINT64, UINT64);
 	EntryPointType* entry_point = (EntryPointType*)entry_addr;
-	entry_point();
+	entry_point(gop->Mode->FrameBufferBase, gop->Mode->FrameBufferSize);
 
 	// 完了メッセージを表示
 	Print(L"All done\n");
