@@ -9,6 +9,7 @@
 #include <Library/UefiLib.h> 					// UEFI基本ライブラリ（Print関数など）
 #include <Library/UefiBootServicesTableLib.h> 	// UEFIブートサービステーブルへのアクセス（gBS グローバル変数）
 #include <Library/PrintLib.h> 					// 文字列フォーマット・出力ライブラリ
+#include <Library/MemoryAllocationLib.h> 		// メモリ割り当て・解放ライブラリ（AllocatePool, FreePoolなど）
 #include <Protocol/LoadedImage.h> 				// 実行中のUEFIアプリケーション自身の情報（ロード元、メモリ位置など）を取得できる
 #include <Protocol/SimpleFileSystem.h> 			// ファイルの読み書きを行うための標準インターフェース
 #include <Protocol/DiskIo2.h> 					// ブロックデバイスへの直接的な読み書き
@@ -241,6 +242,69 @@ EFI_STATUS OpenRootDir(EFI_HANDLE image_handle, EFI_FILE_PROTOCOL** root) {
 }
 
 /**
+ * @brief GOP (Graphics Output Protocol) を取得する
+ *
+ * 画面描画を行うためのGOPを取得する。
+ * GOPを使うことで、フレームバッファ（画面メモリ）に直接アクセスして描画できる。
+ *
+ * @param image_handle このアプリケーションのイメージハンドル
+ * @param gop 出力パラメータ: 取得したGOPへのポインタ
+ * @return EFI_SUCCESS 正常終了
+ */
+EFI_STATUS OpenGOP(EFI_HANDLE image_handle,
+				   EFI_GRAPHICS_OUTPUT_PROTOCOL** gop) {
+	UINTN num_gop_handles = 0;
+	EFI_HANDLE* gop_handles = NULL;
+
+	// GOP対応デバイスを検索
+	gBS->LocateHandleBuffer(
+		ByProtocol,
+		&gEfiGraphicsOutputProtocolGuid,
+		NULL,
+		&num_gop_handles,
+		&gop_handles);
+
+	// 最初に見つかったGOPデバイスを開く
+	gBS->OpenProtocol(
+		gop_handles[0],
+		&gEfiGraphicsOutputProtocolGuid,
+		(VOID**)gop,
+		image_handle,
+		NULL,
+		EFI_OPEN_PROTOCOL_BY_HANDLE_PROTOCOL);
+
+	FreePool(gop_handles);
+
+	return EFI_SUCCESS;
+}
+
+/**
+ * @brief ピクセルフォーマットを文字列に変換する
+ *
+ * GOPのピクセルフォーマット（RGB/BGRなどの色の並び順）を人間が読める文字列に変換する。
+ * デバッグ時に画面設定を確認するために使用。
+ *
+ * @param fmt ピクセルフォーマット
+ * @return フォーマット名を表す文字列
+ */
+const CHAR16* GetPixelFormatUnicode(EFI_GRAPHICS_PIXEL_FORMAT fmt) {
+  switch (fmt) {
+    case PixelRedGreenBlueReserved8BitPerColor:
+      return L"PixelRedGreenBlueReserved8BitPerColor";    // RGB順
+    case PixelBlueGreenRedReserved8BitPerColor:
+      return L"PixelBlueGreenRedReserved8BitPerColor";    // BGR順
+    case PixelBitMask:
+      return L"PixelBitMask";                              // ビットマスク指定
+    case PixelBltOnly:
+      return L"PixelBltOnly";                              // Blt操作のみ
+    case PixelFormatMax:
+      return L"PixelFormatMax";                            // 最大値
+    default:
+      return L"InvalidPixelFormat";                        // 不明な形式
+  }
+}
+
+/**
  * @brief UEFIアプリケーションのエントリーポイント
  *
  * UEFIファームウェアがこのアプリケーションを起動した際に、最初に呼び出される関数。
@@ -293,6 +357,28 @@ EFI_STATUS EFIAPI UefiMain(
 
 	// ファイルを閉じる（書き込みを確定）
 	memmap_file->Close(memmap_file);
+
+	// GOPを取得して画面描画する
+	EFI_GRAPHICS_OUTPUT_PROTOCOL* gop;
+	OpenGOP(image_handle, &gop);
+	Print(L"Resolution: %ux%u, Pixel Format: %s, %u pixels/line\n",
+		gop->Mode->Info->HorizontalResolution,
+		gop->Mode->Info->VerticalResolution,
+		GetPixelFormatUnicode(gop->Mode->Info->PixelFormat),
+		gop->Mode->Info->PixelsPerScanLine);	
+	Print(L"Frame Buffer: 0x%0lx - 0x%0x, Size: %lu bytes\n",
+		gop->Mode->FrameBufferBase,
+		gop->Mode->FrameBufferBase + gop->Mode->FrameBufferSize,
+		gop->Mode->FrameBufferSize);
+
+	/**
+	 * フレームバッファの先頭アドレス(gop->Mode->FrameBufferBase)と
+	 * 全体サイズ(gop->Mode->FrameBufferSize)を使って画面を塗りつぶす
+	 */
+	UINT8* frame_buffer = (UINT8*)gop->Mode->FrameBufferBase;
+	for (UINTN i = 0; i < gop->Mode->FrameBufferSize; ++i) {
+		frame_buffer[i] = 255;
+	}
 
 	// ルートにあるkernel.elfという名前のファイルを読み込み専用で開く
 	EFI_FILE_PROTOCOL* kernel_file;
