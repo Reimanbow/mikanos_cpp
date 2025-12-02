@@ -28,4 +28,6 @@
   # 使用するGUIDがあればここに記述
 
 [Protocols]
-  # 使用するプロトコルがあればここに記述
+  gEfiLoadedImageProtocolGuid
+  gEfiLoadFileProtocolGuid
+  gEfiSimpleFileSystemProtocolGuid
