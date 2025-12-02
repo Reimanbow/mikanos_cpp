@@ -1,0 +1,31 @@
+## @file
+# Loaderモジュールの情報ファイル (.inf)
+# このファイルはビルドシステムに対して、個々のモジュール（この場合はLoader）の
+# ソースファイル、依存パッケージ、使用するライブラリなどを指定します
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010006         # INFファイルのバージョン
+  BASE_NAME                      = Loader             # モジュールの基本名（ビルド成果物名）
+  FILE_GUID                      = c9d0d202-71e9-11e8-9e52-cfbfd0063fbf  # モジュールを一意に識別するGUID
+  MODULE_TYPE                    = UEFI_APPLICATION   # このモジュールはUEFIアプリケーション
+  VERSION_STRING                 = 0.1                # バージョン番号
+  ENTRY_POINT                    = UefiMain           # プログラムの開始地点となる関数名
+
+#  VALID_ARCHITECTURES           = X64                # 対応アーキテクチャ（X64）
+
+[Sources]
+  Main.c                                              # ビルド対象のソースファイル
+
+[Packages]
+  MdePkg/MdePkg.dec                                   # 依存パッケージ（UEFI標準の基本パッケージ）
+
+[LibraryClasses]
+  UefiLib                                             # UEFI基本ライブラリ（Print関数など）
+  UefiApplicationEntryPoint                           # UEFIアプリのエントリーポイント処理
+
+[Guids]
+  # 使用するGUIDがあればここに記述
+
+[Protocols]
+  # 使用するプロトコルがあればここに記述
