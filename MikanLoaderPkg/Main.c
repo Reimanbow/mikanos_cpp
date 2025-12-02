@@ -13,6 +13,7 @@
 #include <Protocol/SimpleFileSystem.h> 			// ファイルの読み書きを行うための標準インターフェース
 #include <Protocol/DiskIo2.h> 					// ブロックデバイスへの直接的な読み書き
 #include <Protocol/BlockIo.h> 					// ディスクなどのブロックデバイスへの低レベルアクセス
+#include <Guid/FileInfo.h>
 
 /**
  * @brief メモリマップ情報を格納する構造体
@@ -292,6 +293,87 @@ EFI_STATUS EFIAPI UefiMain(
 
 	// ファイルを閉じる（書き込みを確定）
 	memmap_file->Close(memmap_file);
+
+	// ルートにあるkernel.elfという名前のファイルを読み込み専用で開く
+	EFI_FILE_PROTOCOL* kernel_file;
+	root_dir->Open(
+		root_dir, &kernel_file, L"\\kernel.elf",
+		EFI_FILE_MODE_READ, 0);
+
+	/**
+	 * ファイル全体を読み込むためのメモリを確保する
+	 * そのためにファイルの大きさを知る必要があるので、kernel_file->GetInfo()でファイル情報を取得する
+	 * EFI_FILE_INFO型の最後のメンバFileNameは配列の要素数が不定であるため、
+	 * sizeof(EFI_FILE_INFO)はメンバAttributeまでの大きさと等しくなる
+	 * \kernel.elfという12文字を格納するため、EFI_FILE_INFOの大きさよりsizeof(CHAR16)*12バイトだけ大きい領域を確保する
+	 */
+	UINTN file_info_size = sizeof(EFI_FILE_INFO) + sizeof(CHAR16) * 12;
+	UINT8 file_info_buffer[file_info_size];
+	kernel_file->GetInfo(
+		kernel_file, &gEfiFileInfoGuid,
+		&file_info_size, file_info_buffer);
+
+	// EFI_FILE_INFO型のfile_info_bufferからFileSizeを読み取る
+	EFI_FILE_INFO* file_info = (EFI_FILE_INFO*)file_info_buffer;
+	UINTN kernel_file_size = file_info->FileSize;
+
+	/**
+	 * gBS->AllocatePages()を使ってファイルを格納できる十分な大きさのメモリ領域を確保する
+	 * 第1引数: メモリの確保の仕方
+	 * 	- AllocateAnyPages: 空いている場所に確保する
+	 * 	- AllocateMaxAddress: 指定したアドレス以下で空いている場所に確保する
+	 * 	- AllocateAddress: 指定したアドレスに確保する
+	 * 第2引数: 確保するメモリ領域の種別
+	 * 第3引数: 大きさ
+	 * 第4引数: 確保したメモリ領域のアドレスを書き込む変数
+	 * 
+	 * 第1引数はカーネルファイルは0x100000番地に配置して動作させる(ld.lldのオプション--image-baseで指定)ためAllocateAddresを指定
+	 * 第2引数はブートローダが使うための領域なら普通はEfiLoaderDataを指定する
+	 * 第3引数はページ単位で指定するため、バイト単位の値をページ単位の値に変換する
+	 * 第4引数はkernel_base_addrのポインタを渡す(AllocateAddress以外の場合の先頭アドレスを知るため)
+	 */
+	EFI_PHYSICAL_ADDRESS kernel_base_addr = 0x100000;
+	gBS->AllocatePages(
+		AllocateAddress, EfiLoaderData,
+		(kernel_file_size + 0xfff) / 0x1000, &kernel_base_addr);
+	// メモリ領域が確保できたら、kernel_file->Read()を使ってファイル全体を読み込む
+	kernel_file->Read(kernel_file, &kernel_file_size, (VOID*)kernel_base_addr);
+	Print(L"Kernel: 0x%0lx (%lu bytes)\n", kernel_base_addr, kernel_file_size);
+
+	/**
+	 * カーネルが起動する前にUEFI BIOSのブートサービスを停止する
+	 * gBS->ExitBootServices()を呼び出して、ブートサービスを停止させる
+	 * 成功したら、ブートサービスの機能(Print()やファイルやメモリ関連の機能など)を使えなくなる
+	 * マップキーが最新でなければ、実行に失敗する
+	 * 失敗したら、サイドメモリマップを取得し、そのマップキーを使って再実行する
+	 * 2回目も失敗したら停止する
+	 */
+	EFI_STATUS status;
+	status = gBS->ExitBootServices(image_handle, memmap.map_key);
+	if (EFI_ERROR(status)) {
+		status = GetMemoryMap(&memmap);
+		if (EFI_ERROR(status)) {
+			Print(L"failed to get memory map: %r\n", status);
+			while (1);
+		}
+		status = gBS->ExitBootServices(image_handle, memmap.map_key);
+		if (EFI_ERROR(status)) {
+			Print(L"Could not exit boot service: %r\n", status);
+			while (1);
+		}
+	}
+
+	/**
+	 * カーネルを起動する
+	 * メモリ上でエントリポイントが置いてある場所を計算してエントリポイントを呼び出す
+	 * 64ビット用ELFのエントリポイントアドレスは、オフセットから24バイトの位置から8バイト整数として書かれる
+	 */
+	UINT64 entry_addr = *(UINT64*)(kernel_base_addr + 24);
+	
+	// エントリポイントの場所であるentry_addrの値を関数ポインタにキャストし呼び出す
+	typedef void EntryPointType(void);
+	EntryPointType* entry_point = (EntryPointType*)entry_addr;
+	entry_point();
 
 	// 完了メッセージを表示
 	Print(L"All done\n");

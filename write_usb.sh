@@ -19,6 +19,9 @@ NC='\033[0m' # No Color
 # ビルド済みのLoaderファイルパス
 LOADER_FILE="build/Loader.efi"
 
+# ビルド済みのカーネルファイルパス
+KERNEL_FILE="build/kernel.elf"
+
 # マウントポイント
 MOUNT_POINT="/mnt/usbmem"
 
@@ -46,6 +49,11 @@ fi
 # Loaderファイルの存在確認
 if [ ! -f "$LOADER_FILE" ]; then
     error_exit "Loader.efi が見つかりません: $LOADER_FILE"
+fi
+
+# カーネルファイルの存在確認
+if [ ! -f "$KERNEL_FILE" ]; then
+    error_exit "kernel.elf が見つかりません: $KERNEL_FILE"
 fi
 
 # デバイスの選択
@@ -90,39 +98,51 @@ echo "USBメモリへの書き込みを開始します"
 echo "========================================="
 
 # ステップ1: アンマウント
-echo "[1/7] デバイスのアンマウント..."
+echo "[1/8] デバイスのアンマウント..."
 umount "$DEVICE"* 2>/dev/null || true  # エラーを無視（既にアンマウントされている場合）
 
 # ステップ2: FATファイルシステムの作成
-echo "[2/7] FAT32ファイルシステムの作成..."
+echo "[2/8] FAT32ファイルシステムの作成..."
 mkfs.fat -F 32 "$DEVICE" || error_exit "ファイルシステムの作成に失敗しました"
 
 # ステップ3: マウントポイントの作成
-echo "[3/7] マウントポイントの作成..."
+echo "[3/8] マウントポイントの作成..."
 mkdir -p "$MOUNT_POINT"
 
 # ステップ4: デバイスのマウント
-echo "[4/7] デバイスのマウント..."
+echo "[4/8] デバイスのマウント..."
 mount "$DEVICE" "$MOUNT_POINT" || error_exit "マウントに失敗しました"
 
 # ステップ5: EFIディレクトリの作成
-echo "[5/7] EFI/BOOTディレクトリの作成..."
+echo "[5/8] EFI/BOOTディレクトリの作成..."
 mkdir -p "$MOUNT_POINT/EFI/BOOT"
 
 # ステップ6: Loaderのコピー
-echo "[6/7] Loader.efiをBOOTX64.EFIとしてコピー..."
+echo "[6/8] Loader.efiをBOOTX64.EFIとしてコピー..."
 cp "$LOADER_FILE" "$MOUNT_POINT/EFI/BOOT/BOOTX64.EFI" || error_exit "ファイルのコピーに失敗しました"
 
 # ファイルが正しくコピーされたか確認
 if [ -f "$MOUNT_POINT/EFI/BOOT/BOOTX64.EFI" ]; then
-    FILE_SIZE=$(stat -c%s "$MOUNT_POINT/EFI/BOOT/BOOTX64.EFI")
-    echo "   -> コピー完了 (サイズ: $FILE_SIZE バイト)"
+    LOADER_SIZE=$(stat -c%s "$MOUNT_POINT/EFI/BOOT/BOOTX64.EFI")
+    echo "   -> コピー完了 (サイズ: $LOADER_SIZE バイト)"
 else
-    error_exit "ファイルのコピー確認に失敗しました"
+    error_exit "Loaderファイルのコピー確認に失敗しました"
 fi
 
-# ステップ7: アンマウント
-echo "[7/7] アンマウント..."
+# ステップ7: kernel.elfのコピー
+echo "[7/8] kernel.elfをルートにコピー..."
+cp "$KERNEL_FILE" "$MOUNT_POINT/kernel.elf" || error_exit "kernel.elfのコピーに失敗しました"
+
+# ファイルが正しくコピーされたか確認
+if [ -f "$MOUNT_POINT/kernel.elf" ]; then
+    KERNEL_SIZE=$(stat -c%s "$MOUNT_POINT/kernel.elf")
+    echo "   -> コピー完了 (サイズ: $KERNEL_SIZE バイト)"
+else
+    error_exit "kernel.elfのコピー確認に失敗しました"
+fi
+
+# ステップ8: アンマウント
+echo "[8/8] アンマウント..."
 sync  # バッファをフラッシュ
 umount "$MOUNT_POINT" || error_exit "アンマウントに失敗しました"
 

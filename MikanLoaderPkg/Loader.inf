@@ -25,7 +25,7 @@
   UefiApplicationEntryPoint                           # UEFIアプリのエントリーポイント処理
 
 [Guids]
-  # 使用するGUIDがあればここに記述
+  gEfiFileInfoGuid
 
 [Protocols]
   gEfiLoadedImageProtocolGuid

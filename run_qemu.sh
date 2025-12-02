@@ -18,6 +18,9 @@ NC='\033[0m' # No Color
 # Loader.efiのパス
 LOADER_EFI="build/Loader.efi"
 
+# kernel.elfのパス
+KERNEL_ELF="build/kernel.elf"
+
 # run_qemu.shのパス（osbook/devenvを使用）
 RUN_QEMU_SCRIPT="$HOME/osbook/devenv/run_qemu.sh"
 
@@ -51,9 +54,22 @@ fi
 
 info "Loader.efi: $LOADER_EFI"
 
-# ファイルサイズの表示
-FILE_SIZE=$(stat -c%s "$LOADER_EFI")
-info "ファイルサイズ: $FILE_SIZE バイト"
+# Loader.efiのファイルサイズの表示
+LOADER_SIZE=$(stat -c%s "$LOADER_EFI")
+info "Loader.efiのサイズ: $LOADER_SIZE バイト"
+
+# kernel.elfの存在確認
+if [ ! -f "$KERNEL_ELF" ]; then
+    error_exit "kernel.elf が見つかりません: $KERNEL_ELF
+
+カーネルをビルドしてください"
+fi
+
+info "kernel.elf: $KERNEL_ELF"
+
+# kernel.elfのファイルサイズの表示
+KERNEL_SIZE=$(stat -c%s "$KERNEL_ELF")
+info "kernel.elfのサイズ: $KERNEL_SIZE バイト"
 
 # run_qemu.shの存在確認
 if [ ! -f "$RUN_QEMU_SCRIPT" ]; then
@@ -71,8 +87,8 @@ echo ""
 # buildディレクトリに移動してrun_qemu.shを実行
 cd build || error_exit "buildディレクトリへの移動に失敗しました"
 
-# 絶対パスでrun_qemu.shを実行
-"$RUN_QEMU_SCRIPT" Loader.efi
+# 絶対パスでrun_qemu.shを実行（Loader.efiとkernel.elfの両方を引数として渡す）
+"$RUN_QEMU_SCRIPT" Loader.efi kernel.elf
 
 # 元のディレクトリに戻る
 cd - > /dev/null
