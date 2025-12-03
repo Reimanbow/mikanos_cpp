@@ -3,10 +3,6 @@
 TARGET = kernel.elf
 OBJS = main.o
 
-# コンパイラとリンカの設定
-CXX = clang++
-LD = ld.lld
-
 # コンパイルフラグ
 CPPFLAGS = -I$(HOME)/osbook/devenv/x86_64-elf/include/c++/v1 \
            -I$(HOME)/osbook/devenv/x86_64-elf/include \
@@ -20,39 +16,24 @@ CPPFLAGS = -I$(HOME)/osbook/devenv/x86_64-elf/include/c++/v1 \
            -D_POSIX_TIMERS \
            -DEFIAPI='__attribute__((ms_abi))'
 
-CXXFLAGS = -O2 \
-           --target=x86_64-elf \
-           -fno-exceptions \
-           -ffreestanding \
-           -fno-rtti \
-           -Wall \
-           -Wextra
+CXXFLAGS += -O2 -Wall -g --target=x86_64-elf -ffreestanding -mno-red-zone \
+            -fno-exceptions -fno-rtti -std=c++17
 
 # リンカフラグ
 # 環境変数のLDFLAGS（ライブラリパス）を使用
-LDFLAGS += --entry KernelMain \
-           -z norelro \
-           --image-base 0x100000 \
-           --static
+LDFLAGS  += --entry KernelMain -z norelro --image-base 0x100000 --static
 
 # ビルドルール
 .PHONY: all clean
 
 all: $(TARGET)
 
-$(TARGET): $(OBJS)
-	$(LD) $(LDFLAGS) -o $@ $^
-
-%.o: %.cpp
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c -o $@ $<
-
+.PHONY: clean
 clean:
-	rm -f $(TARGET) $(OBJS)
+	rm -rf *.o
 
-# デバッグ用: 変数の内容を表示
-debug:
-	@echo "TARGET: $(TARGET)"
-	@echo "OBJS: $(OBJS)"
-	@echo "CPPFLAGS: $(CPPFLAGS)"
-	@echo "CXXFLAGS: $(CXXFLAGS)"
-	@echo "LDFLAGS: $(LDFLAGS)"
+kernel.elf: $(OBJS) Makefile
+	ld.lld $(LDFLAGS) -o kernel.elf $(OBJS)
+
+%.o: %.cpp Makefile
+	clang++ $(CPPFLAGS) $(CXXFLAGS) -c $<
