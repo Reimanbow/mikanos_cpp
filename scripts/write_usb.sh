@@ -16,11 +16,22 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+# スクリプトのディレクトリ（このスクリプトが配置されている場所）
+# readlinkでシンボリックリンクの実体を取得
+SCRIPT_PATH="$0"
+if [ -L "$SCRIPT_PATH" ]; then
+    SCRIPT_PATH="$(readlink -f "$SCRIPT_PATH")"
+fi
+SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
+
+# プロジェクトルートディレクトリ
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
 # ビルド済みのLoaderファイルパス
-LOADER_FILE="build/Loader.efi"
+LOADER_FILE="$PROJECT_ROOT/build/Loader.efi"
 
 # ビルド済みのカーネルファイルパス
-KERNEL_FILE="build/kernel.elf"
+KERNEL_FILE="$PROJECT_ROOT/build/kernel.elf"
 
 # マウントポイント
 MOUNT_POINT="/mnt/usbmem"

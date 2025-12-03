@@ -15,11 +15,22 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+# スクリプトのディレクトリ（このスクリプトが配置されている場所）
+# readlinkでシンボリックリンクの実体を取得
+SCRIPT_PATH="$0"
+if [ -L "$SCRIPT_PATH" ]; then
+    SCRIPT_PATH="$(readlink -f "$SCRIPT_PATH")"
+fi
+SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
+
+# プロジェクトルートディレクトリ
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
 # カーネルソースディレクトリ
-KERNEL_DIR="kernel"
+KERNEL_DIR="$PROJECT_ROOT/kernel"
 
 # 出力先ディレクトリ
-OUTPUT_DIR="build"
+OUTPUT_DIR="$PROJECT_ROOT/build"
 
 # エラーメッセージを表示して終了
 error_exit() {
@@ -58,16 +69,16 @@ cd "$OUTPUT_DIR" || error_exit "出力ディレクトリへの移動に失敗し
 info "カーネルをビルドしています..."
 echo "========================================="
 
-# 親ディレクトリのkernel/Makefileを使用してビルド
-if [ -f "../$KERNEL_DIR/Makefile" ]; then
+# kernel/Makefileを使用してビルド
+if [ -f "$KERNEL_DIR/Makefile" ]; then
     # Makefileがある場合はmakeを使用
     info "Makefileを使用してビルドします..."
-    make -C "../$KERNEL_DIR" clean
-    make -C "../$KERNEL_DIR"
+    make -C "$KERNEL_DIR" clean
+    make -C "$KERNEL_DIR"
 
     # ビルドされたkernel.elfをコピー
-    if [ -f "../$KERNEL_DIR/kernel.elf" ]; then
-        cp "../$KERNEL_DIR/kernel.elf" "kernel.elf" || error_exit "kernel.elfのコピーに失敗しました"
+    if [ -f "$KERNEL_DIR/kernel.elf" ]; then
+        cp "$KERNEL_DIR/kernel.elf" "kernel.elf" || error_exit "kernel.elfのコピーに失敗しました"
     else
         error_exit "kernel.elfが見つかりません"
     fi
@@ -91,7 +102,7 @@ else
         -fno-exceptions \
         -ffreestanding \
         -fno-rtti \
-        -c "../$KERNEL_DIR/main.cpp"
+        -c "$KERNEL_DIR/main.cpp"
 
     info "kernel.elfをリンクしています..."
     ld.lld \

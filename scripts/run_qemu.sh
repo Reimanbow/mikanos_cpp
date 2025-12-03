@@ -15,11 +15,22 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+# スクリプトのディレクトリ（このスクリプトが配置されている場所）
+# readlinkでシンボリックリンクの実体を取得
+SCRIPT_PATH="$0"
+if [ -L "$SCRIPT_PATH" ]; then
+    SCRIPT_PATH="$(readlink -f "$SCRIPT_PATH")"
+fi
+SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
+
+# プロジェクトルートディレクトリ
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
 # Loader.efiのパス
-LOADER_EFI="build/Loader.efi"
+LOADER_EFI="$PROJECT_ROOT/build/Loader.efi"
 
 # kernel.elfのパス
-KERNEL_ELF="build/kernel.elf"
+KERNEL_ELF="$PROJECT_ROOT/build/kernel.elf"
 
 # run_qemu.shのパス（osbook/devenvを使用）
 RUN_QEMU_SCRIPT="$HOME/osbook/devenv/run_qemu.sh"
@@ -85,7 +96,7 @@ echo "========================================="
 echo ""
 
 # buildディレクトリに移動してrun_qemu.shを実行
-cd build || error_exit "buildディレクトリへの移動に失敗しました"
+cd "$PROJECT_ROOT/build" || error_exit "buildディレクトリへの移動に失敗しました"
 
 # 絶対パスでrun_qemu.shを実行（Loader.efiとkernel.elfの両方を引数として渡す）
 "$RUN_QEMU_SCRIPT" Loader.efi kernel.elf

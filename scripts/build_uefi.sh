@@ -17,11 +17,22 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+# スクリプトのディレクトリ（このスクリプトが配置されている場所）
+# readlinkでシンボリックリンクの実体を取得
+SCRIPT_PATH="$0"
+if [ -L "$SCRIPT_PATH" ]; then
+    SCRIPT_PATH="$(readlink -f "$SCRIPT_PATH")"
+fi
+SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
+
+# プロジェクトルートディレクトリ
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
 # EDK2のディレクトリ
 EDK2_DIR="$HOME/edk2"
 
 # 出力先ディレクトリ
-OUTPUT_DIR="$HOME/mikan_neo/build"
+OUTPUT_DIR="$PROJECT_ROOT/build"
 
 # ビルドターゲット（デフォルトはDEBUG）
 BUILD_TARGET="${1:-DEBUG}"
