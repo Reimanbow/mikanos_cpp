@@ -10,6 +10,26 @@
 
 #include "frame_buffer_config.hpp"
 
+// Aのフォントデータ
+const uint8_t kFontA[16] = {
+  0b00000000, //
+  0b00011000, //    **
+  0b00011000, //    **
+  0b00011000, //    **
+  0b00011000, //    **
+  0b00100100, //   *  *
+  0b00100100, //   *  *
+  0b00100100, //   *  *
+  0b00100100, //   *  *
+  0b01111110, //  ******
+  0b01000010, //  *    *
+  0b01000010, //  *    *
+  0b01000010, //  *    *
+  0b11100111, // ***  ***
+  0b00000000, //
+  0b00000000, //	
+};
+
 /**
  * @brief ピクセルの色を設定する構造体
  *
@@ -94,6 +114,22 @@ public:
 };
 
 /**
+ * フォントデータを利用して1文字を描画する. Aのみ
+ */
+void WriteAscii(PixelWriter &writer, int x, int y, char c, const PixelColor& color) {
+	if (c != 'A') {
+		return;
+	}
+	for (int dy = 0; dy < 16; ++dy) {
+		for (int dx = 0; dx < 8; ++dx) {
+			if ((kFontA[dy] << dx) & 0x80u) {
+				writer.Write(x + dx, y + dy, color);
+			}
+		}
+	}
+}
+
+/**
  * @brief 配置new
  * 
  * 一般のnew演算子は、OSがメモリを管理できるようになってはじめてできること
@@ -141,6 +177,9 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config) {
 			pixel_writer->Write(100 + x, 100 + y, {0, 255, 0});
 		}
 	}
+
+	WriteAscii(*pixel_writer, 50, 50, 'A', {0, 0, 0});
+	WriteAscii(*pixel_writer, 58, 50, 'A', {0, 0, 0});
 
 	// 無限ループでCPUを停止
 	// hlt命令でCPUを省電力モードにする（割り込みが来るまで待機）
