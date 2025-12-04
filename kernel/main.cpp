@@ -61,8 +61,10 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config) {
 		}
 	}
 
-	WriteAscii(*pixel_writer, 50, 50, 'A', {0, 0, 0});
-	WriteAscii(*pixel_writer, 58, 50, 'A', {0, 0, 0});
+	int i = 0;
+	for (char c = '!'; c <= '~'; ++c, ++i) {
+		WriteAscii(*pixel_writer, 8 * i, 50, c, {0, 0, 0});
+	}
 
 	// 無限ループでCPUを停止
 	// hlt命令でCPUを省電力モードにする（割り込みが来るまで待機）
