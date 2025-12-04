@@ -1,3 +1,4 @@
 build/
 kernel/*.o
 kernel/kernel.elf
+kernel/.*.d

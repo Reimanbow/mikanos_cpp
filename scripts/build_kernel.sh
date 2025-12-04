@@ -69,50 +69,20 @@ cd "$OUTPUT_DIR" || error_exit "出力ディレクトリへの移動に失敗し
 info "カーネルをビルドしています..."
 echo "========================================="
 
-# kernel/Makefileを使用してビルド
-if [ -f "$KERNEL_DIR/Makefile" ]; then
-    # Makefileがある場合はmakeを使用
-    info "Makefileを使用してビルドします..."
-    make -C "$KERNEL_DIR" clean
-    make -C "$KERNEL_DIR"
+# kernel/Makefileの存在確認
+if [ ! -f "$KERNEL_DIR/Makefile" ]; then
+    error_exit "Makefileが見つかりません: $KERNEL_DIR/Makefile"
+fi
 
-    # ビルドされたkernel.elfをコピー
-    if [ -f "$KERNEL_DIR/kernel.elf" ]; then
-        cp "$KERNEL_DIR/kernel.elf" "kernel.elf" || error_exit "kernel.elfのコピーに失敗しました"
-    else
-        error_exit "kernel.elfが見つかりません"
-    fi
+# Makefileを使用してビルド（インクリメンタルビルド）
+info "Makefileを使用してビルドします..."
+make -C "$KERNEL_DIR"
+
+# ビルドされたkernel.elfをコピー
+if [ -f "$KERNEL_DIR/kernel.elf" ]; then
+    cp "$KERNEL_DIR/kernel.elf" "kernel.elf" || error_exit "kernel.elfのコピーに失敗しました"
 else
-    # Makefileがない場合は直接コンパイル
-    info "main.cppをコンパイルしています..."
-    clang++ \
-        -I$HOME/osbook/devenv/x86_64-elf/include/c++/v1 \
-        -I$HOME/osbook/devenv/x86_64-elf/include \
-        -I$HOME/osbook/devenv/x86_64-elf/include/freetype2 \
-        -I$HOME/edk2/MdePkg/Include \
-        -I$HOME/edk2/MdePkg/Include/X64 \
-        -nostdlibinc \
-        -D__ELF__ \
-        -D_LDBL_EQ_DBL \
-        -D_GNU_SOURCE \
-        -D_POSIX_TIMERS \
-        -DEFIAPI='__attribute__((ms_abi))' \
-        -O2 \
-        --target=x86_64-elf \
-        -fno-exceptions \
-        -ffreestanding \
-        -fno-rtti \
-        -c "$KERNEL_DIR/main.cpp"
-
-    info "kernel.elfをリンクしています..."
-    ld.lld \
-        -L$HOME/osbook/devenv/x86_64-elf/lib \
-        --entry KernelMain \
-        -z norelro \
-        --image-base 0x100000 \
-        --static \
-        -o kernel.elf \
-        main.o
+    error_exit "kernel.elfが見つかりません"
 fi
 
 success "カーネルビルド完了"

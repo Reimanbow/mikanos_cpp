@@ -1,7 +1,8 @@
 # カーネルビルド用Makefile
 
 TARGET = kernel.elf
-OBJS = main.o
+OBJS = main.o graphics.o font.o
+DEPENDS = $(join $(dir $(OBJS)),$(addprefix .,$(notdir $(OBJS:.o=.d))))
 
 # コンパイルフラグ
 CPPFLAGS = -I$(HOME)/osbook/devenv/x86_64-elf/include/c++/v1 \
@@ -37,3 +38,16 @@ kernel.elf: $(OBJS) Makefile
 
 %.o: %.cpp Makefile
 	clang++ $(CPPFLAGS) $(CXXFLAGS) -c $<
+	@clang++ $(CPPFLAGS) $(CXXFLAGS) -MM $< > $(patsubst %.o,.%.d,$@)
+	@sed --in-place 's|$(notdir $@)|$@|' $(patsubst %.o,.%.d,$@)
+
+.%.d: %.cpp
+	clang++ $(CPPFLAGS) $(CXXFLAGS) -MM $< > $@
+	$(eval OBJ = $(<:.cpp=.o))
+	sed --in-place 's|$(notdir $(OBJ))|$(OBJ)|' $@
+
+.PHONY: depends
+depends:
+	$(MAKE) $(DEPENDS)
+
+-include $(DEPENDS)
