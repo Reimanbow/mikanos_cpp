@@ -7,6 +7,7 @@
 
 #include <cstdint>
 #include <cstddef>
+#include <cstdio>
 
 #include "frame_buffer_config.hpp"
 #include "graphics.hpp"
@@ -65,6 +66,11 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config) {
 	for (char c = '!'; c <= '~'; ++c, ++i) {
 		WriteAscii(*pixel_writer, 8 * i, 50, c, {0, 0, 0});
 	}
+	WriteString(*pixel_writer, 0, 66, "Hello, world!", {0, 0, 255});
+
+	char buf[128];
+	sprintf(buf, "1 + 2 = %d", 1 + 2);
+	WriteString(*pixel_writer, 0, 82, buf, {0, 0, 0});
 
 	// 無限ループでCPUを停止
 	// hlt命令でCPUを省電力モードにする（割り込みが来るまで待機）
