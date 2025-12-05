@@ -77,3 +77,45 @@ public:
 
 	virtual void Write(int x, int y, const PixelColor& c) override;
 };
+
+/**
+ * @brief いろいろな型で、2次元ベクトルを表現する構造体
+ */
+template <typename T>
+struct Vector2D {
+	T x, y;
+
+	/**
+	 * @brief 演算子+=を可能にする
+	 * 
+	 * Vector2D型の2つの変数a、bに関してa+=bのような操作を可能にする
+	 */
+	template<typename U>
+	Vector2D<T>& operator +=(const Vector2D<U>& rhs) {
+		x += rhs.x;
+		y += rhs.y;
+		return *this;
+	}
+};
+
+/**
+ * @brief 長方形の枠だけ描く
+ * 
+ * @param writer	PixelWriter型のインスタンスの参照
+ * @param pos		長方形の左上の座標
+ * @param size		長方形の大きさ
+ * @param c			描画色
+ */
+void DrawRectangle(PixelWriter& writer, const Vector2D<int>& pos,
+				   const Vector2D<int>& size, const PixelColor& c);
+
+/**
+ * @brief 長方形を塗りつぶす
+ * 
+ * @param writer	PixelWriter型のインスタンスの参照
+ * @param pos		長方形の左上の座標
+ * @param size		長方形の大きさ
+ * @param c			描画色
+ */
+void FillRectangle(PixelWriter& writer, const Vector2D<int> &pos,
+				   const Vector2D<int>& size, const PixelColor& c);
