@@ -43,12 +43,13 @@ public:
 		kInvalidPhase,
 	    kUnknownXHCISpeedID,
    		kNoWaiter,
+		kNoPCIMSI,
 		kLastOfCode, ///< エラーコードの末尾（配列サイズ計算用）
 	};
 
 private:
 	/// エラーコード名の配列（デバッグ用）
-	static constexpr std::array<const char*, 20> code_names_{
+	static constexpr std::array<const char*, 21> code_names_{
 		"kSuccess",
 		"kFull",
 		"kEmpty",
@@ -68,6 +69,7 @@ private:
 		"kTransferFailed",
 		"kInvalidPhase",
 		"kUnknownXHCISpeedID",
+		"kNoPCIMSI",
 		"kNoWaiter",
 	};
 	static_assert(Error::Code::kLastOfCode == code_names_.size());

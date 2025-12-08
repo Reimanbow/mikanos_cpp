@@ -23,4 +23,14 @@ extern "C" {
 	 * @param addr	IOポートアドレス
 	 */
 	uint32_t IoIn32(uint16_t addr);
+
+	/**
+	 * @brief 現在のコードセグメントのセレクタ値を返す
+	 */
+	uint16_t GetCS(void);
+
+	/**
+	 * @brief IDTの場所をCPUに教える
+	 */
+	void LoadIDT(uint16_t limit, uint64_t offset);
 }
