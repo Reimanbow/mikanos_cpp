@@ -24,6 +24,8 @@
 #include "usb/classdriver/mouse.hpp"
 #include "usb/xhci/xhci.hpp"
 #include "usb/xhci/trb.hpp"
+#include "interrupt.hpp"
+#include "asmfunc.h"
 
 const PixelColor kDesktopBGColor{45, 118, 237};
 const PixelColor kDesktopFGColor{255, 255, 255};
@@ -78,6 +80,24 @@ void SwitchEhci2Xhci(const pci::Device& xhc_dev) {
 	uint32_t ehci2xchi_ports = pci::ReadConfReg(xhc_dev, 0xd4);
 	pci::WriteConfReg(xhc_dev, 0xd0, ehci2xchi_ports);
 	Log(kDebug, "SwitchEhci2Xhci: SS = %02x, xHCI = %02x\n", superspeed_ports, ehci2xchi_ports);
+}
+
+usb::xhci::Controller* xhc;
+
+/**
+ * @brief xHCI用割り込みハンドラ
+ * 
+ * @note __attribute__((interrupt))により割り込みハンドラとして扱われる
+ */
+__attribute__((interrupt))
+void IntHandlerXHCI(InterruptFrame* frame) {
+	while (xhc->PrimaryEventRing()->HasFront()) {
+		if (auto err = ProcessEvent(*xhc)) {
+			Log(kError, "Error while ProcessEvent: %s at %s:%d\n",
+				err.Name(), err.File(), err.Line());
+		}
+	}
+	NotifyEndOfInterrupt();
 }
 
 /**
@@ -165,6 +185,19 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config) {
 			xhc_dev->bus, xhc_dev->device, xhc_dev->function);
 	}
 
+	// 割り込みベクタ0x40を設定してIDTをCPUに登録する
+	const uint16_t cs = GetCS();
+	SetIDTEntry(idt[InterruptVector::kXHCI], MakeIDTAttr(DescriptorType::kInterruptGate, 0),
+				reinterpret_cast<uint64_t>(IntHandlerXHCI), cs);
+	LoadIDT(sizeof(idt) - 1, reinterpret_cast<uintptr_t>(&idt[0]));
+
+	const uint8_t bsp_local_apic_id =
+		*reinterpret_cast<const uint32_t*>(0xfee00020) >> 24;
+	pci::ConfigureMSIFixedDestination(
+		*xhc_dev, bsp_local_apic_id,
+		pci::MSITriggerMode::kLevel, pci::MSIDeliveryMode::kFixed,
+		InterruptVector::kXHCI, 0);
+
 	/**
 	 * xHCを制御するレジスタ群はMMIOである
 	 * MMIOアドレスは、PCIコンフィギュレーション空間にあるBAR0に記録されている
@@ -191,6 +224,9 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config) {
 	Log(kInfo, "xHC starting\n");
 	xhc.Run();
 
+	::xhc = &xhc;
+	__asm__("sti");
+
 	/**
 	 * 接続されたUSB機器の中からマウスを探す
 	 */
@@ -213,19 +249,6 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config) {
 					err.Name(), err.File(), err.Line());
 				continue;
 			}
-		}
-	}
-
-	/**
-	 * xHCに溜まったイベントを処理する
-	 * USB機器の動作にともなって処理すべきデータが発生する
-	 * それらはイベントという形でxHCに溜まっていく
-	 * ProcessEvent()を呼び出すことでxHCに対して溜まったイベントを処理するように命令する
-	 */
-	while (1) {
-		if (auto err = ProcessEvent(xhc)) {
-			Log(kError, "Error while ProcessEvent: %s at %s:%d\n",
-				err.Name(), err.File(), err.Line());
 		}
 	}
 
