@@ -26,6 +26,7 @@
 #include "usb/xhci/trb.hpp"
 #include "interrupt.hpp"
 #include "asmfunc.h"
+#include "queue.hpp"
 
 const PixelColor kDesktopBGColor{45, 118, 237};
 const PixelColor kDesktopFGColor{255, 255, 255};
@@ -84,6 +85,15 @@ void SwitchEhci2Xhci(const pci::Device& xhc_dev) {
 
 usb::xhci::Controller* xhc;
 
+// キューが扱うデータ型
+struct Message {
+	enum Type {
+		kInterruptXHCI,
+	} type;
+};
+
+ArrayQueue<Message>* main_queue;
+
 /**
  * @brief xHCI用割り込みハンドラ
  * 
@@ -91,12 +101,8 @@ usb::xhci::Controller* xhc;
  */
 __attribute__((interrupt))
 void IntHandlerXHCI(InterruptFrame* frame) {
-	while (xhc->PrimaryEventRing()->HasFront()) {
-		if (auto err = ProcessEvent(*xhc)) {
-			Log(kError, "Error while ProcessEvent: %s at %s:%d\n",
-				err.Name(), err.File(), err.Line());
-		}
-	}
+	// キューに対してプッシュする
+	main_queue->Push(Message{Message::kInterruptXHCI});
 	NotifyEndOfInterrupt();
 }
 
@@ -148,6 +154,10 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config) {
 	mouse_cursor = new(mouse_cursor_buf) MouseCursor{
 		pixel_writer, kDesktopBGColor, {300, 200}
 	};
+
+	std::array<Message, 32> main_queue_data;
+	ArrayQueue<Message> main_queue{main_queue_data};
+	::main_queue = &main_queue;
 	
 	// PCIデバイスをすべて検出し、検出されたPCIデバイスの一覧を表示する
 	auto err = pci::ScanAllBus();
@@ -249,6 +259,34 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config) {
 					err.Name(), err.File(), err.Line());
 				continue;
 			}
+		}
+	}
+
+	// メッセージを繰り返し処理するイベントループ
+	while (true) {
+		// 割り込み禁止(CPUが外部割り込みを受け取らなくなる)
+		__asm__("cli");
+		if (main_queue.Count() == 0) {
+			__asm__("sti\n\thlt");
+			continue;
+		}
+
+		Message msg = main_queue.Front();
+		main_queue.Pop();
+		// 割り込み許可
+		__asm__("sti");
+
+		switch (msg.type) {
+		case Message::kInterruptXHCI:
+			while (xhc.PrimaryEventRing()->HasFront()) {
+				if (auto err = ProcessEvent(xhc)) {
+					Log(kError, "Error while ProcessEvnet: %s at %s:%d\n",
+						err.Name(), err.File(), err.Line());
+				}
+			}
+			break;
+		default:
+			Log(kError, "Unknown message type: %d\n", msg.type);
 		}
 	}
 
