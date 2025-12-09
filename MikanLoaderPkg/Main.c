@@ -17,22 +17,8 @@
 #include <Protocol/BlockIo.h> 					// ディスクなどのブロックデバイスへの低レベルアクセス
 #include <Guid/FileInfo.h>
 #include "frame_buffer_config.hpp"
+#include "memory_map.hpp"
 #include "elf.hpp"
-
-/**
- * @brief メモリマップ情報を格納する構造体
- *
- * UEFIファームウェアが管理しているメモリマップ（どのメモリ領域が何に使われているか）を取得・保持するためのデータ構造
- * OSを起動する際には、このメモリマップ情報をOSに渡す必要がある
- */
-struct MemoryMap {
-	UINTN	buffer_size;        // メモリマップを格納するバッファのサイズ（バイト）
-	VOID*	buffer;             // メモリマップデータを格納するバッファへのポインタ
-	UINTN	map_size;           // 実際のメモリマップのサイズ（GetMemoryMap実行後に設定される）
-	UINTN	map_key;            // メモリマップの状態を識別するキー（ExitBootServices時に必要）
-	UINTN	descriptor_size;    // 各メモリディスクリプタ（1エントリ）のバイト数
-	UINT32	descriptor_version; // メモリディスクリプタ構造体のバージョン
-};
 
 /**
  * @brief 現在のメモリマップを取得する関数
@@ -627,9 +613,10 @@ EFI_STATUS EFIAPI UefiMain(
 	}
 	
 	// エントリポイントの場所であるentry_addrの値を関数ポインタにキャストし呼び出す
-	typedef void EntryPointType(const struct FrameBufferConfig*);
+	typedef void EntryPointType(const struct FrameBufferConfig*,
+								const struct MemoryMap*);
 	EntryPointType* entry_point = (EntryPointType*)entry_addr;
-	entry_point(&config);
+	entry_point(&config, &memmap);
 
 	// 完了メッセージを表示
 	Print(L"All done\n");

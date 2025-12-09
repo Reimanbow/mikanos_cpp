@@ -49,7 +49,7 @@ public:
 
 private:
 	/// エラーコード名の配列（デバッグ用）
-	static constexpr std::array<const char*, 21> code_names_{
+	static constexpr std::array code_names_{
 		"kSuccess",
 		"kFull",
 		"kEmpty",

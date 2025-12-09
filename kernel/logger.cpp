@@ -9,7 +9,7 @@
 #include "console.hpp"
 
 namespace {
-	LogLevel log_level = kWarm;
+	LogLevel log_level = kWarn;
 }
 
 extern Console* console;
