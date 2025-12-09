@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "frame_buffer_config.hpp"
+#include "memory_map.hpp"
 #include "graphics.hpp"
 #include "mouse.hpp"
 #include "font.hpp"
@@ -78,9 +79,9 @@ void SwitchEhci2Xhci(const pci::Device& xhc_dev) {
 
 	uint32_t superspeed_ports = pci::ReadConfReg(xhc_dev, 0xdc);
 	pci::WriteConfReg(xhc_dev, 0xd8, superspeed_ports);
-	uint32_t ehci2xchi_ports = pci::ReadConfReg(xhc_dev, 0xd4);
-	pci::WriteConfReg(xhc_dev, 0xd0, ehci2xchi_ports);
-	Log(kDebug, "SwitchEhci2Xhci: SS = %02x, xHCI = %02x\n", superspeed_ports, ehci2xchi_ports);
+	uint32_t ehci2xhci_ports = pci::ReadConfReg(xhc_dev, 0xd4);
+	pci::WriteConfReg(xhc_dev, 0xd0, ehci2xhci_ports);
+	Log(kDebug, "SwitchEhci2Xhci: SS = %02x, xHCI = %02x\n", superspeed_ports, ehci2xhci_ports);
 }
 
 usb::xhci::Controller* xhc;
@@ -111,9 +112,11 @@ void IntHandlerXHCI(InterruptFrame* frame) {
  *
  * ブートローダー（MikanLoader）から制御が移った後、最初に実行される関数
  *
- * @param frame_buffer_config フレームバッファの情報を格納した構造体の参照
+ * @param frame_buffer_config	フレームバッファの情報を格納した構造体の参照
+ * @param memory_map			メモリマップ
  */
-extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config) {
+extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config,
+						   const MemoryMap& memory_map) {
 	switch (frame_buffer_config.pixel_format) {
 		case kPixelRGBResv8BitPerColor:
 			pixel_writer = new(pixel_writer_buf)
@@ -149,7 +152,55 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config) {
 		*pixel_writer, kDesktopFGColor, kDesktopBGColor
 	};
 	printk("Welcome to MikanOS!\n");
-	SetLogLevel(kWarm);
+	SetLogLevel(kWarn);
+
+	/**
+	 * OSが使用可能なメモリ領域のタイプを定義
+	 *
+	 * BootServicesCode/Data: UEFIブートサービスが使っていた領域（OS起動後は解放可能）
+	 * ConventionalMemory: 通常のメモリ（OSが自由に使える）
+	 */
+	const std::array available_memory_types{
+		MemoryType::kEfiBootServicesCode,
+		MemoryType::kEfiBootServicesData,
+		MemoryType::kEfiConventionalMemory,
+	};
+
+	// デバッグ情報: メモリマップのアドレスと基本情報を表示
+	printk("memory_map: %p\n", &memory_map);
+	printk("Starting loop: buffer=%p, map_size=%lu, desc_size=%lu\n",
+	       memory_map.buffer, memory_map.map_size, memory_map.descriptor_size);
+
+	/**
+	 * メモリマップを走査して、使用可能なメモリ領域を表示
+	 *
+	 * - memory_map.bufferの先頭から順番にメモリディスクリプタを読み取る
+	 * - 各ディスクリプタはdescriptor_sizeバイトずつ離れている
+	 * - 使用可能なタイプ(available_memory_types)のみを表示
+	 */
+	for (uintptr_t iter = reinterpret_cast<uintptr_t>(memory_map.buffer);
+		 iter < reinterpret_cast<uintptr_t>(memory_map.buffer) + memory_map.map_size;
+		 iter += memory_map.descriptor_size) {
+		// 現在のイテレータ位置をMemoryDescriptor構造体へのポインタとして解釈
+		auto desc = reinterpret_cast<MemoryDescriptor*>(iter);
+
+		// 使用可能なメモリタイプかチェック
+		for (int i = 0; i < available_memory_types.size(); ++i) {
+			if (desc->type == available_memory_types[i]) {
+				// メモリ領域の情報を表示
+				// phys: 物理アドレス範囲（開始 - 終了）
+				// pages: ページ数（1ページ = 4096バイト）
+				// attr: メモリ属性
+				printk("type = %u, phys = %08lx - %08lx, pages = %lu, attr = %08lx\n",
+					desc->type,
+					desc->physical_start,
+					desc->physical_start + desc->number_of_pages * 4096 - 1,
+					desc->number_of_pages,
+					desc->attribute);
+				break;  // 一致したらinner loopを抜ける
+			}
+		}
+	}
 
 	mouse_cursor = new(mouse_cursor_buf) MouseCursor{
 		pixel_writer, kDesktopBGColor, {300, 200}

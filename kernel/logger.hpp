@@ -5,7 +5,7 @@
 
 enum LogLevel {
 	kError 	= 3,
-	kWarm	= 4,
+	kWarn	= 4,
 	kInfo	= 6,
 	kDebug	= 7,
 };
