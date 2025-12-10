@@ -33,4 +33,21 @@ extern "C" {
 	 * @brief IDTの場所をCPUに教える
 	 */
 	void LoadIDT(uint16_t limit, uint64_t offset);
+
+	/**
+	 * @brief GDTの場所をCPUに教える
+	 */
+	void LoadGDT(uint16_t limit, uint64_t offset);
+
+	/**
+	 * @brief CSとSSに値を設定する
+	 */
+	void SetCSSS(uint16_t cs, uint16_t ss);
+
+	/**
+	 * @brief DSやSSなどのレジスタを設定する
+	 */
+	void SetDSAll(uint16_t value);
+
+	void SetCR3(uint64_t value);
 }

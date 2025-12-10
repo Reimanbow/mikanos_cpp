@@ -77,4 +77,17 @@ inline bool operator==(uint32_t lhs, MemoryType rhs) {
 inline bool operator==(MemoryType lhs, uint32_t rhs) {
 	return rhs == lhs;
 }
+
+/**
+ * @brief 空き領域を判定する
+ */
+inline bool IsAvailable(MemoryType memory_type) {
+	return
+		memory_type == MemoryType::kEfiBootServicesCode ||
+		memory_type == MemoryType::kEfiBootServicesData ||
+		memory_type == MemoryType::kEfiConventionalMemory;
+}
+
+// 1ページのサイズ
+const int kUEFIPageSize = 4096;
 #endif
