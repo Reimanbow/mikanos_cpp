@@ -28,6 +28,8 @@
 #include "interrupt.hpp"
 #include "asmfunc.h"
 #include "queue.hpp"
+#include "segment.hpp"
+#include "paging.hpp"
 
 const PixelColor kDesktopBGColor{45, 118, 237};
 const PixelColor kDesktopFGColor{255, 255, 255};
@@ -107,6 +109,8 @@ void IntHandlerXHCI(InterruptFrame* frame) {
 	NotifyEndOfInterrupt();
 }
 
+alignas(16) uint8_t kernel_main_stack[1024 * 1024];
+
 /**
  * @brief カーネルのエントリポイント
  *
@@ -115,8 +119,10 @@ void IntHandlerXHCI(InterruptFrame* frame) {
  * @param frame_buffer_config	フレームバッファの情報を格納した構造体の参照
  * @param memory_map			メモリマップ
  */
-extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config,
-						   const MemoryMap& memory_map) {
+extern "C" void KernelMainNewStack(const FrameBufferConfig& frame_buffer_config_ref,
+						   const MemoryMap& memory_map_ref) {
+	FrameBufferConfig frame_buffer_config{frame_buffer_config_ref};
+	MemoryMap memory_map{memory_map_ref};
 	switch (frame_buffer_config.pixel_format) {
 		case kPixelRGBResv8BitPerColor:
 			pixel_writer = new(pixel_writer_buf)
@@ -153,6 +159,21 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config,
 	};
 	printk("Welcome to MikanOS!\n");
 	SetLogLevel(kWarn);
+
+	/**
+	 * セグメンテーションの設定を行う
+	 * GDTを再構築し、再構築したGDTの内容をCPUに反映させる
+	 */
+	SetupSegments();
+
+	const uint16_t kernel_cs = 1 << 3;
+	const uint16_t kernel_ss = 2 << 3;
+	// 再構築したGDTの内容がCPUに反映される
+	SetDSAll(0);
+	SetCSSS(kernel_cs, kernel_ss);
+
+	// ページングの設定
+	SetupIdentityPageTable();
 
 	/**
 	 * OSが使用可能なメモリ領域のタイプを定義
