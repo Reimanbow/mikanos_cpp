@@ -30,6 +30,7 @@
 #include "queue.hpp"
 #include "segment.hpp"
 #include "paging.hpp"
+#include "memory_manager.hpp"
 
 const PixelColor kDesktopBGColor{45, 118, 237};
 const PixelColor kDesktopFGColor{255, 255, 255};
@@ -52,6 +53,9 @@ int printk(const char* format, ...) {
 	console->PutString(s);
 	return result;
 }
+
+char memory_manager_buf[sizeof(BitmapMemoryManager)];
+BitmapMemoryManager* memory_manager;
 
 char mouse_cursor_buf[sizeof(MouseCursor)];
 MouseCursor* mouse_cursor;
@@ -176,52 +180,57 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig& frame_buffer_config_
 	SetupIdentityPageTable();
 
 	/**
-	 * OSが使用可能なメモリ領域のタイプを定義
+	 * メモリマネージャの初期化と使用中領域の設定
 	 *
-	 * BootServicesCode/Data: UEFIブートサービスが使っていた領域（OS起動後は解放可能）
-	 * ConventionalMemory: 通常のメモリ（OSが自由に使える）
-	 */
-	const std::array available_memory_types{
-		MemoryType::kEfiBootServicesCode,
-		MemoryType::kEfiBootServicesData,
-		MemoryType::kEfiConventionalMemory,
-	};
-
-	// デバッグ情報: メモリマップのアドレスと基本情報を表示
-	printk("memory_map: %p\n", &memory_map);
-	printk("Starting loop: buffer=%p, map_size=%lu, desc_size=%lu\n",
-	       memory_map.buffer, memory_map.map_size, memory_map.descriptor_size);
-
-	/**
-	 * メモリマップを走査して、使用可能なメモリ領域を表示
+	 * UEFIから受け取ったメモリマップを解析し、使用中の領域を
+	 * メモリマネージャに登録する。これにより、カーネルが使える
+	 * 空きメモリ領域を正しく管理できるようになる。
 	 *
-	 * - memory_map.bufferの先頭から順番にメモリディスクリプタを読み取る
-	 * - 各ディスクリプタはdescriptor_sizeバイトずつ離れている
-	 * - 使用可能なタイプ(available_memory_types)のみを表示
+	 * 使用中としてマークする領域:
+	 * 1. IsAvailable()が偽を返す領域（カーネルや予約済み領域など）
+	 * 2. メモリマップ上で歯抜けになっている領域（ハードウェア予約領域など）
 	 */
-	for (uintptr_t iter = reinterpret_cast<uintptr_t>(memory_map.buffer);
-		 iter < reinterpret_cast<uintptr_t>(memory_map.buffer) + memory_map.map_size;
+	::memory_manager = new(memory_manager_buf) BitmapMemoryManager;
+
+	// メモリマップの先頭アドレスを取得
+	const auto memory_map_base = reinterpret_cast<uintptr_t>(memory_map.buffer);
+	// 現在見つかっている利用可能メモリ領域の終端アドレス
+	uintptr_t available_end = 0;
+
+	// メモリマップの各エントリを順番に処理
+	for (uintptr_t iter = memory_map_base;
+		 iter < memory_map_base + memory_map.map_size;
 		 iter += memory_map.descriptor_size) {
-		// 現在のイテレータ位置をMemoryDescriptor構造体へのポインタとして解釈
-		auto desc = reinterpret_cast<MemoryDescriptor*>(iter);
+		auto desc = reinterpret_cast<const MemoryDescriptor*>(iter);
 
-		// 使用可能なメモリタイプかチェック
-		for (int i = 0; i < available_memory_types.size(); ++i) {
-			if (desc->type == available_memory_types[i]) {
-				// メモリ領域の情報を表示
-				// phys: 物理アドレス範囲（開始 - 終了）
-				// pages: ページ数（1ページ = 4096バイト）
-				// attr: メモリ属性
-				printk("type = %u, phys = %08lx - %08lx, pages = %lu, attr = %08lx\n",
-					desc->type,
-					desc->physical_start,
-					desc->physical_start + desc->number_of_pages * 4096 - 1,
-					desc->number_of_pages,
-					desc->attribute);
-				break;  // 一致したらinner loopを抜ける
-			}
+		// 前の利用可能領域の終端と、現在のエントリの開始位置の間に隙間があれば、
+		// その隙間は使用中（ハードウェア予約など）としてマークする
+		if (available_end < desc->physical_start) {
+			memory_manager->MarkAllocated(
+				FrameID{available_end / kBytesPerFrame},
+				(desc->physical_start - available_end) / kBytesPerFrame);
+		}
+
+		// 現在のエントリの終端アドレスを計算
+		const auto physical_end =
+			desc->physical_start + desc->number_of_pages * kUEFIPageSize;
+
+		// エントリのタイプをチェック
+		if (IsAvailable(static_cast<MemoryType>(desc->type))) {
+			// 利用可能な領域: available_endを更新（この領域は空きとして扱う）
+			available_end = physical_end;
+		} else {
+			// 利用不可の領域（カーネルコード、UEFI予約など）: 使用中としてマークする
+			memory_manager->MarkAllocated(
+				FrameID{desc->physical_start / kBytesPerFrame},
+				desc->number_of_pages * kUEFIPageSize / kBytesPerFrame);
 		}
 	}
+
+	// メモリマネージャが管理する範囲を設定
+	// フレーム0はNULLポインタ用に予約するため、フレーム1から開始
+	// 終端は、見つかった利用可能メモリの最後まで
+	memory_manager->SetMemoryRange(FrameID{1}, FrameID{available_end / kBytesPerFrame});
 
 	mouse_cursor = new(mouse_cursor_buf) MouseCursor{
 		pixel_writer, kDesktopBGColor, {300, 200}
