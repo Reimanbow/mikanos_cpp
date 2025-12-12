@@ -9,7 +9,7 @@ class Console {
 public:
 	static const int kRows = 25, kColumns = 80;
 
-	Console(PixelWriter& writer, const PixelColor& fg_color, const PixelColor& bg_color);
+	Console(const PixelColor& fg_color, const PixelColor& bg_color);
 
 	/**
 	 * @brief 文字列を出力する
@@ -21,6 +21,8 @@ public:
 	 */
 	void PutString(const char* s);
 
+	void SetWriter(PixelWriter* writer);
+
 private:
 	/**
 	 * @brief 改行処理を行う
@@ -31,7 +33,9 @@ private:
 	 */
 	void Newline();
 
-	PixelWriter& writer_;
+	void Refresh();
+
+	PixelWriter* writer_;
 	const PixelColor fg_color_, bg_color_;
 	char buffer_[kRows][kColumns + 1];
 	int cursor_row_, cursor_column_;

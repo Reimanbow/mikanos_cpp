@@ -18,7 +18,3 @@ extern "C" int posix_memalign(void**, size_t, size_t) {
 extern "C" void __cxa_pure_virtual() {
 	while (1) __asm__("hlt");
 }
-
-extern "C" void _exit(int status) {
-	while (1) __asm__("hlt");
-}
