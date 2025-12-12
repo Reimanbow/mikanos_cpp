@@ -14,6 +14,14 @@ struct PixelColor {
 	uint8_t r, g, b;	// [R 8bit][G 8bit][B 8bit]
 };
 
+inline bool operator==(const PixelColor& lhs, const PixelColor& rhs) {
+	return lhs.r == rhs.r && lhs.g == rhs.g && lhs.b == rhs.b;
+}
+
+inline bool operator!=(const PixelColor& lhs, const PixelColor& rhs) {
+	return !(lhs == rhs);
+}
+
 /**
  * @brief ピクセル描画を行う抽象基底クラス
  *
@@ -23,12 +31,6 @@ struct PixelColor {
  */
 class PixelWriter {
 public:
-	/**
-	 * @brief コンストラクタ
-	 * @param config フレームバッファの設定情報
-	 */
-	PixelWriter(const FrameBufferConfig& config) : config_{config} {}
-
 	/**
 	 * @brief 仮想デストラクタ
 	 *
@@ -45,6 +47,18 @@ public:
 	 * 派生クラスで具体的な描画処理を実装する必要がある
 	 */
 	virtual void Write(int x, int y, const PixelColor& c) = 0;
+
+	virtual int Width() const = 0;
+	virtual int Height() const = 0;
+};
+
+class FrameBufferWriter : public PixelWriter {
+public:
+	FrameBufferWriter(const FrameBufferConfig& config) : config_{config} {
+	}
+	virtual ~FrameBufferWriter() = default;
+	virtual int Width() const override { return config_.horizontal_resolution; }
+	virtual int Height() const override { return config_.vertical_resolution; }
 
 protected:
 	/**
@@ -64,16 +78,16 @@ private:
 	const FrameBufferConfig& config_;	// フレームバッファ設定への参照
 };
 
-class RGBResv8BitPerColorPixelWriter : public PixelWriter {
+class RGBResv8BitPerColorPixelWriter : public FrameBufferWriter {
 public:
-	using PixelWriter::PixelWriter;
+	using FrameBufferWriter::FrameBufferWriter;
 
 	virtual void Write(int x, int y, const PixelColor& c) override;
 };
 
-class BGRResv8BitPerColorPixelWriter : public PixelWriter {
+class BGRResv8BitPerColorPixelWriter : public FrameBufferWriter {
 public:
-	using PixelWriter::PixelWriter;
+	using FrameBufferWriter::FrameBufferWriter;
 
 	virtual void Write(int x, int y, const PixelColor& c) override;
 };
@@ -119,3 +133,8 @@ void DrawRectangle(PixelWriter& writer, const Vector2D<int>& pos,
  */
 void FillRectangle(PixelWriter& writer, const Vector2D<int> &pos,
 				   const Vector2D<int>& size, const PixelColor& c);
+
+const PixelColor kDesktopBGColor{45, 118, 237};
+const PixelColor kDesktopFGColor{255, 255, 255};
+
+void DrawDesktop(PixelWriter& writer);

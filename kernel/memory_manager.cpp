@@ -76,3 +76,19 @@ void BitmapMemoryManager::SetBit(FrameID frame, bool allocated) {
 		alloc_map_[line_index] &= ~(static_cast<MapLineType>(1) << bit_index);
 	}
 }
+
+extern "C" caddr_t program_break, program_break_end;
+
+Error InitializeHeap(BitmapMemoryManager& memory_manager) {
+	// メモリマネージャから64x512フレームだけメモリを割り当ててもらう
+	const int kHeapFrames = 64 * 512;
+	const auto heap_start = memory_manager.Allocate(kHeapFrames);
+	if (heap_start.error) {
+		return heap_start.error;
+	}
+
+	// フレーム番号からアドレスを計算する
+	program_break = reinterpret_cast<caddr_t>(heap_start.value.ID() * kBytesPerFrame);
+	program_break_end = program_break + kHeapFrames * kBytesPerFrame;
+	return MAKE_ERROR(Error::kSuccess);
+}

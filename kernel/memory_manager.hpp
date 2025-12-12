@@ -131,3 +131,8 @@ private:
 	 */
 	void SetBit(FrameID frame, bool allocated);
 };
+
+/**
+ * @brief プログラムブレークの初期値を設定する
+ */
+Error InitializeHeap(BitmapMemoryManager& memory_manager);
