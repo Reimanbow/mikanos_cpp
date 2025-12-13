@@ -46,7 +46,7 @@ public:
 	/**
 	 * @brief writerに現在設定されているウィンドウの内容を描画する
 	 */
-	void DrawTo(PixelWriter& writer) const;
+	void DrawTo(FrameBuffer& screen) const;
 
 private:
 	unsigned int id_;
@@ -59,7 +59,7 @@ public:
 	/**
 	 * @brief Drawメソッドなどで描画する際の描画先を設定する
 	 */
-	void SetWriter(PixelWriter* writer);
+	void SetWriter(FrameBuffer* screen);
 
 	/**
 	 * @brief 新しいレイヤを生成して参照を返す
@@ -95,7 +95,7 @@ public:
 	void Hide(unsigned int id);
 
 private:
-	PixelWriter* writer_{nullptr};
+	FrameBuffer* screen_{nullptr};
 	// 存在するすべてのレイヤを格納する配列
 	std::vector<std::unique_ptr<Layer>> layers_{};
 	// 先頭の要素を再背面レイヤ、そこから順に積んでいって、末尾を最前面とするスタック。非表示は含まない

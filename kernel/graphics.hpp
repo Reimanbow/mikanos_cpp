@@ -23,6 +23,33 @@ inline bool operator!=(const PixelColor& lhs, const PixelColor& rhs) {
 }
 
 /**
+ * @brief いろいろな型で、2次元ベクトルを表現する構造体
+ */
+template <typename T>
+struct Vector2D {
+	T x, y;
+
+	/**
+	 * @brief 演算子+=を可能にする
+	 * 
+	 * Vector2D型の2つの変数a、bに関してa+=bのような操作を可能にする
+	 */
+	template<typename U>
+	Vector2D<T>& operator +=(const Vector2D<U>& rhs) {
+		x += rhs.x;
+		y += rhs.y;
+		return *this;
+	}
+};
+
+template<typename T, typename U>
+auto operator +(const Vector2D<T>& lhs, const Vector2D<U>& rhs)
+		-> Vector2D<decltype(lhs.x + rhs.x)> {
+	return {lhs.x + rhs.x, lhs.y + rhs.y};
+}
+
+
+/**
  * @brief ピクセル描画を行う抽象基底クラス
  *
  * フレームバッファへのピクセル描画機能を提供する。
@@ -46,7 +73,7 @@ public:
 	 *
 	 * 派生クラスで具体的な描画処理を実装する必要がある
 	 */
-	virtual void Write(int x, int y, const PixelColor& c) = 0;
+	virtual void Write(Vector2D<int> pos, const PixelColor& c) = 0;
 
 	virtual int Width() const = 0;
 	virtual int Height() const = 0;
@@ -70,8 +97,8 @@ protected:
 	 * 1ピクセル = 4バイト（RGBA or BGRA）
 	 * アドレス計算: 先頭 + 4バイト × (1行のピクセル数 × y + x)
 	 */
-	uint8_t* PixelAt(int x, int y) {
-		return config_.frame_buffer + 4 * (config_.pixels_per_scan_line * y + x);
+	uint8_t* PixelAt(Vector2D<int> pos) {
+		return config_.frame_buffer + 4 * (config_.pixels_per_scan_line * pos.y + pos.x);
 	}
 
 private:
@@ -82,35 +109,16 @@ class RGBResv8BitPerColorPixelWriter : public FrameBufferWriter {
 public:
 	using FrameBufferWriter::FrameBufferWriter;
 
-	virtual void Write(int x, int y, const PixelColor& c) override;
+	virtual void Write(Vector2D<int> pos, const PixelColor& c) override;
 };
 
 class BGRResv8BitPerColorPixelWriter : public FrameBufferWriter {
 public:
 	using FrameBufferWriter::FrameBufferWriter;
 
-	virtual void Write(int x, int y, const PixelColor& c) override;
+	virtual void Write(Vector2D<int> pos, const PixelColor& c) override;
 };
 
-/**
- * @brief いろいろな型で、2次元ベクトルを表現する構造体
- */
-template <typename T>
-struct Vector2D {
-	T x, y;
-
-	/**
-	 * @brief 演算子+=を可能にする
-	 * 
-	 * Vector2D型の2つの変数a、bに関してa+=bのような操作を可能にする
-	 */
-	template<typename U>
-	Vector2D<T>& operator +=(const Vector2D<U>& rhs) {
-		x += rhs.x;
-		y += rhs.y;
-		return *this;
-	}
-};
 
 /**
  * @brief 長方形の枠だけ描く
