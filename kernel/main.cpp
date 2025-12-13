@@ -33,6 +33,7 @@
 #include "memory_manager.hpp"
 #include "window.hpp"
 #include "layer.hpp"
+#include "timer.hpp"
 
 char pixel_writer_buf[sizeof(RGBResv8BitPerColorPixelWriter)];
 PixelWriter* pixel_writer;
@@ -60,7 +61,11 @@ unsigned int mouse_layer_id;
 
 void MouseObserver(int8_t displacement_x, int8_t displacement_y) {
 	layer_manager->MoveRelative(mouse_layer_id, {displacement_x, displacement_y});
+	StartLAPICTimer();
 	layer_manager->Draw();
+	auto elapsed = LAPICTimerElapsed();
+	StopLAPICTimer();
+	printk("MouseObserver: elapsed = %u\n", elapsed);
 }
 
 /**
@@ -145,6 +150,8 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig& frame_buffer_config_
 	console->SetWriter(pixel_writer);
 	printk("Welcome to MikanOS!\n");
 	SetLogLevel(kWarn);
+
+	InitializeLAPICTimer();
 
 	/**
 	 * セグメンテーションの設定を行う
