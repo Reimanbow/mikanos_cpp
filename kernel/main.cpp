@@ -351,7 +351,7 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig& frame_buffer_config_
 	// 背景画像を描画
 	DrawDesktop(*bgwriter);
 	// consoleの描画先を背景に描画する
-	console->SetWriter(bgwriter);
+	console->SetWindow(bgwindow);
 
 	/**
 	 * マウスカーソル用のWindowのインスタンスを作成する
