@@ -20,7 +20,12 @@ public:
 	/**
 	 * @brief 指定されたバッファを自身のバッファへコピーする
 	 */
-	Error Copy(Vector2D<int> pos, const FrameBuffer& src);
+	Error Copy(Vector2D<int> dst_pos, const FrameBuffer& src);
+
+	/**
+	 * @brief 指定された範囲を移動させる
+	 */
+	void Move(Vector2D<int> dst_pos, const Rectangle<int>& src);
 
 	FrameBufferWriter& Writer() { return *writer_; }
 
@@ -31,8 +36,3 @@ private:
 	std::vector<uint8_t> buffer_{};
 	std::unique_ptr<FrameBufferWriter> writer_{};
 };
-
-/**
- * @brief 1ピクセルのビット数を返す
- */
-int BitsPerPixel(PixelFormat format);
