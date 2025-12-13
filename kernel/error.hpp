@@ -44,6 +44,7 @@ public:
 	    kUnknownXHCISpeedID,
    		kNoWaiter,
 		kNoPCIMSI,
+		kUnknownPixelFormat,
 		kLastOfCode, ///< エラーコードの末尾（配列サイズ計算用）
 	};
 
@@ -71,6 +72,7 @@ private:
 		"kUnknownXHCISpeedID",
 		"kNoPCIMSI",
 		"kNoWaiter",
+		"kUnknownPixelFormat",
 	};
 	static_assert(Error::Code::kLastOfCode == code_names_.size());
 
