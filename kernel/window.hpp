@@ -48,10 +48,11 @@ public:
 	/**
 	 * @brief 与えられたPixelWriterにこのウィンドウの表示領域を描画する
 	 * 
-	 * @param dst		描画先
-	 * @param position	writerの左上を基準した描画位置
+	 * @param dst	描画先
+	 * @param pos	dstの左上を基準としたウィンドウの位置
+	 * @param area	dstの左上を基準とした描画対象範囲
 	 */
-	void DrawTo(FrameBuffer& dst, Vector2D<int> position);
+	void DrawTo(FrameBuffer& dst, Vector2D<int> position, const Rectangle<int>& area);
 	
 	/**
 	 * @brief 透過色を設定する
@@ -82,6 +83,11 @@ public:
 	 * @brief 平面描画領域の高さをピクセル単位で返す
 	 */
 	int Height() const;
+
+	/**
+	 * @brief 平面描画領域のサイズをピクセル単位で返す
+	 */
+	Vector2D<int> Size() const;
 
 	/**
 	 * @brief このウィンドウの平面描画領域内で、矩形領域を移動する

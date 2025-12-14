@@ -34,6 +34,11 @@ public:
 	std::shared_ptr<Window> GetWindow() const;
 
 	/**
+	 * @brief レイヤーの原点座標を取得する
+	 */
+	Vector2D<int> GetPosition() const;
+
+	/**
 	 * @brief レイヤの位置情報を指定した絶対座標へと更新する。再描画はしない
 	 */
 	Layer& Move(Vector2D<int> pos);
@@ -46,7 +51,7 @@ public:
 	/**
 	 * @brief writerに現在設定されているウィンドウの内容を描画する
 	 */
-	void DrawTo(FrameBuffer& screen) const;
+	void DrawTo(FrameBuffer& screen, const Rectangle<int>& area) const;
 
 private:
 	unsigned int id_;
@@ -69,15 +74,20 @@ public:
 	/**
 	 * @brief 現在表示状態にあるレイヤを描画する
 	 */
-	void Draw() const;
+	void Draw(const Rectangle<int>& area) const;
 
 	/**
-	 * @brief レイヤの位置情報を指定した絶対座標へと更新する。再描画はしない
+	 * @brief 指定したレイヤーに設定されているウィンドウの描画領域内を再描画する
 	 */
-	void Move(unsigned int id, Vector2D<int> new_position);
+	void Draw(unsigned int id) const;
 
 	/**
-	 * @brief レイヤの位置情報を指定した相対座標へと更新する。再描画はしない
+	 * @brief レイヤの位置情報を指定した絶対座標へと更新する。再描画する
+	 */
+	void Move(unsigned int id, Vector2D<int> new_pos);
+
+	/**
+	 * @brief レイヤの位置情報を指定した相対座標へと更新する。再描画する
 	 */
 	void MoveRelative(unsigned int id, Vector2D<int> pos_diff);
 
