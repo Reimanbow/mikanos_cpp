@@ -106,6 +106,7 @@ public:
 
 private:
 	FrameBuffer* screen_{nullptr};
+	mutable FrameBuffer back_buffer_{};
 	// 存在するすべてのレイヤを格納する配列
 	std::vector<std::unique_ptr<Layer>> layers_{};
 	// 先頭の要素を再背面レイヤ、そこから順に積んでいって、末尾を最前面とするスタック。非表示は含まない
