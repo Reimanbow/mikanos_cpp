@@ -104,6 +104,8 @@ public:
 	 */
 	void Hide(unsigned int id);
 
+	Layer* FindLayerByPosition(Vector2D<int> pos, unsigned int exclude_id) const;
+
 private:
 	FrameBuffer* screen_{nullptr};
 	mutable FrameBuffer back_buffer_{};
