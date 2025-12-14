@@ -39,6 +39,16 @@ public:
 	Vector2D<int> GetPosition() const;
 
 	/**
+	 * @brief trueでレイヤーがドラッグ移動可能となる
+	 */
+	Layer& SetDraggable(bool draggable);
+
+	/**
+	 * @brief レイヤーがドラッグ移動可能ならtrueを返す
+	 */
+	bool IsDraggable() const;
+
+	/**
 	 * @brief レイヤの位置情報を指定した絶対座標へと更新する。再描画はしない
 	 */
 	Layer& Move(Vector2D<int> pos);
@@ -55,8 +65,9 @@ public:
 
 private:
 	unsigned int id_;
-	Vector2D<int> pos_;
-	std::shared_ptr<Window> window_;
+	Vector2D<int> pos_{};
+	std::shared_ptr<Window> window_{};
+	bool draggable_{false};
 };
 
 class LayerManager {
