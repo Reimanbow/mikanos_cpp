@@ -29,6 +29,8 @@ public:
 
 	FrameBufferWriter& Writer() { return *writer_; }
 
+	const FrameBufferConfig& Config() const { return config_; }
+
 private:
 	// 描画領域に関する構成情報
 	FrameBufferConfig config_{};
