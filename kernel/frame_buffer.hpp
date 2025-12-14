@@ -20,7 +20,7 @@ public:
 	/**
 	 * @brief 指定されたバッファを自身のバッファへコピーする
 	 */
-	Error Copy(Vector2D<int> dst_pos, const FrameBuffer& src);
+	Error Copy(Vector2D<int> dst_pos, const FrameBuffer& src, const Rectangle<int>& src_area);
 
 	/**
 	 * @brief 指定された範囲を移動させる
