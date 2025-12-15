@@ -7,6 +7,7 @@
 #include <limits>
 
 #include "error.hpp"
+#include "memory_map.hpp"
 
 // サイズ単位を使いやすくするためのユーザー定義リテラル
 namespace {
@@ -135,4 +136,4 @@ private:
 /**
  * @brief プログラムブレークの初期値を設定する
  */
-Error InitializeHeap(BitmapMemoryManager& memory_manager);
+void InitializeMemoryManager(const MemoryMap& memory_map);

@@ -20,3 +20,5 @@ const size_t kPageDirectoryCount = 64;
  * 最終的にCR3レジスタが正しく設定されたページテーブルを指すようになる
  */
 void SetupIdentityPageTable();
+
+void InitializePaging();
