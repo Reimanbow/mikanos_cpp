@@ -5,8 +5,10 @@
 
 #include <array>
 #include <cstdint>
+#include <deque>
 
 #include "x86_descriptor.hpp"
+#include "message.hpp"
 
 // 割り込み記述子の属性を表す共用体
 union InterruptDescriptorAttribute {
@@ -83,3 +85,5 @@ struct InterruptFrame {
  * この番地に値を書くことで割り込み処理の終了をCPUにも伝えられるようになっている
  */
 void NotifyEndOfInterrupt();
+
+void InitializeInterrupt(std::deque<Message>* msg_queue);
