@@ -5,7 +5,6 @@ kernel/.*.d
 kernel/*.bin
 kernel/*.swp
 kernel/usb/*.o
-kernel/.usb
 kernel/usb/.*.d
 kernel/usb/classdriver/*.o
 kernel/usb/classdriver/*.d

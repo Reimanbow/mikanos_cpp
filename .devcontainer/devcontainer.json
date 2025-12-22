@@ -1,0 +1,45 @@
+{
+  "name": "MikanOS Development",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": "."
+  },
+
+  // コンテナ起動後に実行されるコマンド
+  "postCreateCommand": "ln -sf /workspaces/mikanos_cpp/MikanLoaderPkg /home/vscode/edk2/MikanLoaderPkg",
+
+  // VSCode拡張機能
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-vscode.cpptools",
+        "ms-vscode.cpptools-extension-pack",
+        "llvm-vs-code-extensions.vscode-clangd"
+      ],
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  },
+
+  // コンテナ実行時のオプション
+  "runArgs": [
+    "--privileged"
+  ],
+
+  // ポート転送（必要に応じて）
+  "forwardPorts": [],
+
+  // リモートユーザー
+  "remoteUser": "vscode",
+
+  // マウント設定
+  "mounts": [
+    "source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind"
+  ],
+
+  // 環境変数
+  "containerEnv": {
+    "DISPLAY": "${localEnv:DISPLAY}"
+  }
+}

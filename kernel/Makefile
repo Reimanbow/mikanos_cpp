@@ -48,8 +48,6 @@ kernel.elf: $(OBJS) Makefile
 
 %.o: %.cpp Makefile
 	clang++ $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
-	@clang++ $(CPPFLAGS) $(CXXFLAGS) -MM $< > $(patsubst %.o,.%.d,$@)
-	@sed --in-place 's|$(notdir $@)|$@|' $(patsubst %.o,.%.d,$@)
 
 .%.d: %.cpp
 	clang++ $(CPPFLAGS) $(CXXFLAGS) -MM $< > $@
@@ -58,8 +56,6 @@ kernel.elf: $(OBJS) Makefile
 
 %.o: %.c Makefile
 	clang $(CPPFLAGS) $(CFLAGS) -c $< -o $@
-	@clang $(CPPFLAGS) $(CFLAGS) -MM $< > $(patsubst %.o,.%.d,$@)
-	@sed --in-place 's|$(notdir $@)|$@|' $(patsubst %.o,.%.d,$@)
 
 .%.d: %.c
 	clang $(CPPFLAGS) $(CFLAGS) -MM $< > $@
