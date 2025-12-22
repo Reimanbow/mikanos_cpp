@@ -41,15 +41,13 @@ all: $(TARGET)
 
 .PHONY: clean
 clean:
-	rm -rf *.o .*.d usb/*.o usb/.*.d usb/*/*.o usb/*/.*.d usb/*/*/*.o usb/*/*/.*.d kernel.elf hankaku.bin
+	rm -rf *.o
 
 kernel.elf: $(OBJS) Makefile
 	ld.lld $(LDFLAGS) -o kernel.elf $(OBJS) -lc -lc++ -lc++abi
 
 %.o: %.cpp Makefile
 	clang++ $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
-	@clang++ $(CPPFLAGS) $(CXXFLAGS) -MM $< > $(patsubst %.o,.%.d,$@)
-	@sed --in-place 's|$(notdir $@)|$@|' $(patsubst %.o,.%.d,$@)
 
 .%.d: %.cpp
 	clang++ $(CPPFLAGS) $(CXXFLAGS) -MM $< > $@
@@ -58,8 +56,6 @@ kernel.elf: $(OBJS) Makefile
 
 %.o: %.c Makefile
 	clang $(CPPFLAGS) $(CFLAGS) -c $< -o $@
-	@clang $(CPPFLAGS) $(CFLAGS) -MM $< > $(patsubst %.o,.%.d,$@)
-	@sed --in-place 's|$(notdir $@)|$@|' $(patsubst %.o,.%.d,$@)
 
 .%.d: %.c
 	clang $(CPPFLAGS) $(CFLAGS) -MM $< > $@
