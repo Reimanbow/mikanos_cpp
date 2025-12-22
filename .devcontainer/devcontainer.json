@@ -6,7 +6,7 @@
   },
 
   // コンテナ起動後に実行されるコマンド
-  "postCreateCommand": "ln -sf /workspaces/mikan_neo/MikanLoaderPkg /home/vscode/edk2/MikanLoaderPkg",
+  "postCreateCommand": "ln -sf /workspaces/mikanos_cpp/MikanLoaderPkg /home/vscode/edk2/MikanLoaderPkg",
 
   // VSCode拡張機能
   "customizations": {

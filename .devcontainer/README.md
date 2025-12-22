@@ -36,7 +36,7 @@
 
 - **ユーザー**: `vscode`
 - **ホームディレクトリ**: `/home/vscode`
-- **プロジェクトディレクトリ**: `/workspaces/mikan_neo`
+- **プロジェクトディレクトリ**: `/workspaces/mikanos_cpp`
 - **EDK2**: `/home/vscode/edk2`
 - **標準ライブラリ**: `/home/vscode/osbook/devenv`
 
@@ -45,7 +45,7 @@
 コンテナ起動時に、`postCreateCommand`で自動的にシンボリックリンクが作成されます:
 
 ```bash
-/home/vscode/edk2/MikanLoaderPkg -> /workspaces/mikan_neo/MikanLoaderPkg
+/home/vscode/edk2/MikanLoaderPkg -> /workspaces/mikanos_cpp/MikanLoaderPkg
 ```
 
 ## X11転送（QEMU GUIの表示）
@@ -85,7 +85,7 @@ xhost +localhost
 シンボリックリンクを手動で作成:
 
 ```bash
-ln -sf /workspaces/mikan_neo/MikanLoaderPkg /home/vscode/edk2/MikanLoaderPkg
+ln -sf /workspaces/mikanos_cpp/MikanLoaderPkg /home/vscode/edk2/MikanLoaderPkg
 ```
 
 ### QEMU起動エラー: "Cannot open display"
