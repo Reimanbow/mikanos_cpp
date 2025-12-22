@@ -32,8 +32,16 @@ LOADER_EFI="$PROJECT_ROOT/build/Loader.efi"
 # kernel.elfのパス
 KERNEL_ELF="$PROJECT_ROOT/build/kernel.elf"
 
-# run_qemu.shのパス（osbook/devenvを使用）
-RUN_QEMU_SCRIPT="$HOME/osbook/devenv/run_qemu.sh"
+# run_qemu.shのパスを環境に応じて設定
+# まずPATHから検索、見つからなければホームディレクトリで検索
+if command -v run_qemu.sh > /dev/null 2>&1; then
+    RUN_QEMU_SCRIPT="$(command -v run_qemu.sh)"
+elif [ -f "$HOME/osbook/devenv/run_qemu.sh" ]; then
+    RUN_QEMU_SCRIPT="$HOME/osbook/devenv/run_qemu.sh"
+else
+    # devcontainer環境の可能性
+    RUN_QEMU_SCRIPT="/home/vscode/osbook/devenv/run_qemu.sh"
+fi
 
 # エラーメッセージを表示して終了
 error_exit() {
